@@ -114,7 +114,7 @@ class MockBackend:
                 prev = now
             produced += 1
             if request.collect_text:
-                texts.append(_token_for(request.prompt, request.sampling.seed, i))
+                texts.append(_token_for(request.prompt, request.sampling.seed, i, n_out))
 
         end_ns = time.perf_counter_ns()
         prompt_ms = (self.config.mock_prompt_eval_ns_per_token * prompt_tokens) / 1e6
@@ -143,7 +143,12 @@ class MockBackend:
         )
 
 
-def _token_for(prompt: str, seed: int, index: int) -> str:
-    digest = hashlib.sha256(f"{seed}:{index}:{prompt}".encode()).hexdigest()
-    # Stable 1-token-ish word from the hash, space-separated.
+def _token_for(prompt: str, seed: int, index: int, n_out: int) -> str:
+    # Greedy-style answer for the built-in quality probe so mock demos
+    # exercise the sanity check rather than fail it.
+    if "capital of france" in prompt.lower():
+        if index == 0:
+            return "Paris"
+        return ""
+    digest = hashlib.sha256(f"{seed}:{index}:{prompt}:{n_out}".encode()).hexdigest()
     return (" " if index else "") + digest[:6]

@@ -1,0 +1,68 @@
+from __future__ import annotations
+
+import pytest
+
+from llmbench.backends.mock import MockBackend
+from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
+from llmbench.export import read_json, write_csv, write_json
+from llmbench.runner import run_benchmark
+from llmbench.schema import SamplingParams
+
+
+@pytest.mark.asyncio
+async def test_runner_mock_populates_schema(tmp_path) -> None:
+    cfg = BenchConfig(
+        warmup=1,
+        iterations=4,
+        concurrency=[1, 2],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="mock",
+            model="mock-7b",
+            mock_output_tokens=8,
+            mock_ttft_ns=2_000_000,
+            mock_inter_token_ns=500_000,
+        ),
+        sampling=SamplingParams(temperature=0.2, max_tokens=8, seed=42),
+        memory=MemoryConfig(sample_interval_ms=50),
+        quality=QualityConfig(enabled=True),
+    )
+    backend = MockBackend(cfg.backend)
+    result = await run_benchmark(cfg, backend=backend)
+    assert result.synthetic is True
+    assert result.data_lineage == "synthetic_mock"
+    assert result.harness.overhead is not None
+    assert result.quality is not None and result.quality.ok is True
+    assert result.sampling.temperature == 0.2  # speed run params preserved
+    assert {s.concurrency for s in result.summaries} == {1, 2}
+    measured = [t for t in result.trials if not t.warmup]
+    assert len(measured) == 8  # 4 iters * 2 conc levels
+    assert all(t.ttft_ms is not None for t in measured if t.ok)
+    assert result.memory is not None
+    assert result.memory.n_samples >= 1
+
+    json_path = tmp_path / "run.json"
+    csv_path = tmp_path / "run.csv"
+    write_json(result, json_path)
+    write_csv(result, csv_path)
+    again = read_json(json_path)
+    assert again.run_id == result.run_id
+    assert csv_path.read_text(encoding="utf-8").splitlines()[0].startswith("run_id")
+
+
+@pytest.mark.asyncio
+async def test_warmup_not_in_summary_n_ok() -> None:
+    cfg = BenchConfig(
+        warmup=2,
+        iterations=3,
+        concurrency=[1],
+        suites=["code"],
+        backend=BackendConfig(type="mock", mock_output_tokens=4),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    summary = result.summaries[0]
+    assert summary.n_warmup == 2
+    assert summary.n_ok == 3
+    assert summary.n_err == 0
