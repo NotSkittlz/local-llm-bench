@@ -254,6 +254,15 @@ async def _run_suite(
             "throughput is completed output tokens / wall time of the measured phase "
             "(includes queueing when the server serializes)"
         )
+    if any(
+        t.ok
+        and t.prefill_tps is not None
+        and (t.server_timings is None or t.server_timings.prompt_ms is None)
+        for t in ok_trials
+    ):
+        notes.append(
+            "prefill tok/s is the proxy prompt_tokens/TTFT; the server did not report prompt_ms"
+        )
     summary = SuiteSummary(
         name=suite,
         concurrency=concurrency,

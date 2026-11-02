@@ -11,7 +11,7 @@ from jinja2 import Template
 from llmbench import __version__
 from llmbench.charts import grouped_bar_chart
 from llmbench.exceptions import ReportError
-from llmbench.schema import SCHEMA_VERSION, RunResult, SuiteSummary
+from llmbench.schema import SCHEMA_VERSION, HarnessOverhead, RunResult, SuiteSummary
 
 
 def render_html(runs: list[RunResult]) -> str:
@@ -109,14 +109,19 @@ def _hero_tiles(run: RunResult) -> list[dict[str, str]]:
         {
             "label": "VRAM peak",
             "value": _n(mem.gpu_vram_peak_mib if mem else None),
-            "unit": "MiB",
+            "unit": "MiB" if mem and mem.gpu_vram_peak_mib is not None else "",
         },
-        {
-            "label": "Harness TTFT floor",
-            "value": _n(overhead.zero_delay_ttft_ms if overhead else None),
-            "unit": "ms",
-        },
+        _harness_tile(overhead),
     ]
+
+
+def _harness_tile(overhead: HarnessOverhead | None) -> dict[str, str]:
+    if overhead is None:
+        return {"label": "Harness TTFT floor", "value": "—", "unit": ""}
+    ms = overhead.zero_delay_ttft_ms
+    if ms < 0.01:
+        return {"label": "Harness TTFT floor", "value": f"{ms * 1000:.2f}", "unit": "µs"}
+    return {"label": "Harness TTFT floor", "value": _n(ms), "unit": "ms"}
 
 
 def _compare_tiles(runs: list[RunResult]) -> list[dict[str, str]]:
@@ -281,7 +286,7 @@ def _tables_section(runs: list[RunResult]) -> str:
         "TTFT p50",
         "TTFT p95",
         "Decode p50",
-        "Prefill p50",
+        "Prefill p50†",
         "E2E p50",
         "E2E p95",
         "Tok/s wall",
@@ -313,6 +318,22 @@ def _tables_section(runs: list[RunResult]) -> str:
                 parts.append(f"<td class='{klass}'>{c}</td>")
             parts.append("</tr>")
     parts.append("</tbody></table>")
+    note_bits = []
+    for run in runs:
+        for s in run.summaries:
+            for n in s.notes:
+                if n not in note_bits:
+                    note_bits.append(n)
+    if note_bits:
+        parts.append("<ul class='notes'>")
+        parts.append("<li>† Prefill may be a TTFT proxy when the server omits prompt_ms.</li>")
+        for n in note_bits:
+            parts.append(f"<li>{html.escape(n)}</li>")
+        parts.append("</ul>")
+    else:
+        parts.append(
+            "<p class='sub'>† Prefill is server prompt_ms when present; otherwise prompt_tokens/TTFT proxy.</p>"
+        )
 
     if len(runs) > 1:
         parts.append("<h3>Deltas vs first run (p50 decode tok/s, TTFT)</h3>")
@@ -323,8 +344,8 @@ def _tables_section(runs: list[RunResult]) -> str:
         o = run.harness.overhead
         parts.append("<h2>Harness overhead</h2>")
         parts.append(
-            f"<p>Zero-delay mock TTFT floor: <strong>{o.zero_delay_ttft_ms:.3f} ms</strong> · "
-            f"e2e {o.zero_delay_e2e_ms:.3f} ms · "
+            f"<p>Zero-delay mock TTFT floor: <strong>{_fmt_overhead(o.zero_delay_ttft_ms)}</strong> · "
+            f"e2e {_fmt_overhead(o.zero_delay_e2e_ms)} · "
             f"perf_counter_ns ≈ {o.timestamp_cost_ns:.0f} ns/call "
             f"({o.iterations} iterations, {o.tokens_in_probe} tokens).</p>"
         )
@@ -439,12 +460,23 @@ def _markdown_compare(runs: list[RunResult]) -> list[str]:
     return lines
 
 
+def _fmt_overhead(ms: float) -> str:
+    if ms < 0.01:
+        return f"{ms * 1000:.2f} µs"
+    return f"{ms:.3f} ms"
+
+
 def _n(value: float | None) -> str:
     if value is None:
         return "—"
-    if abs(value) >= 100:
+    av = abs(value)
+    if av == 0:
+        return "0"
+    if av < 0.01:
+        return f"{value:.4f}"
+    if av >= 100:
         return f"{value:.1f}"
-    if abs(value) >= 10:
+    if av >= 10:
         return f"{value:.2f}"
     return f"{value:.3f}"
 

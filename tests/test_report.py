@@ -30,6 +30,8 @@ async def test_html_is_self_contained_and_flags_synthetic() -> None:
     assert "data-theme" in html
     assert "Harness" in html or "harness" in html.lower()
     assert "TTFT" in html
+    assert "µs" in html or "ms" in html
+    assert "Prefill" in html
     md = render_markdown([run])
     assert "Synthetic" in md
     assert "short_chat" in md

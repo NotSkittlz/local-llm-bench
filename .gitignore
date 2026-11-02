@@ -34,3 +34,6 @@ results/
 
 # uv
 uv.lock
+
+# Local Playwright MCP dumps
+.playwright-mcp/

@@ -283,4 +283,8 @@ def _print_summary(result: RunResult) -> None:
         flag = "[green]pass[/]" if result.quality.ok else "[red]fail[/]"
         console.print(f"Quality probe: {flag}")
     if result.harness.overhead:
-        console.print(f"Harness TTFT floor: {result.harness.overhead.zero_delay_ttft_ms:.3f} ms")
+        floor = result.harness.overhead.zero_delay_ttft_ms
+        if floor < 0.01:
+            console.print(f"Harness TTFT floor: {floor * 1000:.2f} µs")
+        else:
+            console.print(f"Harness TTFT floor: {floor:.3f} ms")
