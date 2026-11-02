@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -35,6 +36,14 @@ app = typer.Typer(
 )
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _print_dim(msg: str) -> None:
+    console.print(escape(msg), style="dim")
+
+
+def _print_error(msg: str) -> None:
+    err_console.print(f"[red]Error:[/] {escape(str(msg))}")
 
 
 def _configure_stdio() -> None:
@@ -152,7 +161,7 @@ def run(
             mode = thinking.strip().lower()
             if mode not in THINKING_MODES:
                 allowed = ", ".join(THINKING_MODES)
-                err_console.print(f"[red]Error:[/] --thinking must be one of: {allowed}")
+                _print_error(f"--thinking must be one of: {allowed}")
                 raise typer.Exit(2)
             overrides["thinking"] = mode
         cfg = apply_cli_overrides(cfg, overrides)
@@ -171,8 +180,9 @@ def run(
         console.print(
             Panel.fit(
                 Text.from_markup(
-                    f"[bold]local-llm-bench[/] {__version__}\n"
-                    f"backend [cyan]{cfg.backend.type}[/]  model [cyan]{cfg.model.name}[/]  "
+                    f"[bold]local-llm-bench[/] {escape(__version__)}\n"
+                    f"backend [cyan]{escape(cfg.backend.type)}[/]  "
+                    f"model [cyan]{escape(cfg.model.name)}[/]  "
                     f"seed [cyan]{cfg.seed}[/]"
                 ),
                 border_style="dim",
@@ -180,7 +190,7 @@ def run(
         )
 
         def progress(msg: str) -> None:
-            console.print(f"[dim]{msg}[/]")
+            _print_dim(msg)
 
         result = asyncio.run(run_benchmark(cfg, progress=progress))
         write_json(result, json_path)
@@ -189,13 +199,16 @@ def run(
         if md_path:
             write_markdown([result], md_path)
         _print_summary(result)
-        console.print(f"\nWrote [bold]{json_path}[/], {csv_path}, {html_path}")
+        console.print(
+            f"\nWrote [bold]{escape(str(json_path))}[/], "
+            f"{escape(str(csv_path))}, {escape(str(html_path))}"
+        )
         if result.synthetic:
             console.print(
                 "[yellow]Synthetic mock timings — not hardware inference. Do not cite as performance.[/]"
             )
     except LLMBenchError as exc:
-        err_console.print(f"[red]Error:[/] {exc}")
+        _print_error(exc)
         raise typer.Exit(1) from exc
 
 
@@ -217,10 +230,10 @@ def report(
             Path(md_out).parent.mkdir(parents=True, exist_ok=True)
             Path(md_out).write_text(md, encoding="utf-8")
         if stdout_md:
-            console.print(md)
-        console.print(f"Wrote [bold]{html_path}[/]")
+            console.print(md, markup=False)
+        console.print(f"Wrote [bold]{escape(str(html_path))}[/]")
     except LLMBenchError as exc:
-        err_console.print(f"[red]Error:[/] {exc}")
+        _print_error(exc)
         raise typer.Exit(1) from exc
 
 
@@ -233,19 +246,19 @@ def compare(
     """Compare runs across hardware or backends; markdown tables for READMEs."""
 
     if len(results) < 2:
-        err_console.print("[red]Error:[/] compare needs at least two result files.")
+        _print_error("compare needs at least two result files.")
         raise typer.Exit(2)
     try:
         runs = [_load(p) for p in results]
         md = render_markdown(runs)
-        console.print(md)
+        console.print(md, markup=False)
         if html_out:
             write_html(runs, html_out)
-            console.print(f"Wrote [bold]{html_out}[/]")
+            console.print(f"Wrote [bold]{escape(str(html_out))}[/]")
         if md_out:
             Path(md_out).write_text(md, encoding="utf-8")
     except LLMBenchError as exc:
-        err_console.print(f"[red]Error:[/] {exc}")
+        _print_error(exc)
         raise typer.Exit(1) from exc
 
 
@@ -256,7 +269,7 @@ def overhead() -> None:
     try:
         result = asyncio.run(measure_harness_overhead())
     except LLMBenchError as exc:
-        err_console.print(f"[red]Error:[/] {exc}")
+        _print_error(exc)
         raise typer.Exit(1) from exc
     table = Table(title="Harness overhead (in-process mock, zero simulated compute)")
     table.add_column("Metric")
@@ -267,7 +280,7 @@ def overhead() -> None:
     table.add_row("Probe tokens", str(result.tokens_in_probe))
     console.print(table)
     for note in result.notes:
-        console.print(f"[dim]{note}[/]")
+        _print_dim(note)
 
 
 @app.command()
@@ -293,7 +306,7 @@ def hardware() -> None:
         table.add_row("GPU", "none detected")
     console.print(table)
     for note in info.notes:
-        console.print(f"[dim]{note}[/]")
+        _print_dim(note)
 
 
 @app.command("suites")
@@ -301,7 +314,7 @@ def suites_cmd() -> None:
     """List built-in prompt suites."""
 
     for name in BUILTIN_SUITES:
-        console.print(f"* [bold]{name}[/]")
+        console.print(f"* [bold]{escape(name)}[/]")
     console.print("[dim]Configure via YAML or --suites short_chat,code,long_context[/]")
 
 

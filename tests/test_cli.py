@@ -104,6 +104,50 @@ def test_invalid_thinking_is_rejected() -> None:
     assert "thinking" in blob
 
 
+def test_hardware_console_keeps_bracketed_extra_name(monkeypatch) -> None:
+    from llmbench.schema import HardwareInfo
+
+    fake = HardwareInfo(
+        os="Linux",
+        os_release="6",
+        arch="x86_64",
+        notes=["optional extra [nvidia] (pynvml) not installed"],
+    )
+    monkeypatch.setattr("llmbench.cli.probe_hardware", lambda: fake)
+    result = runner.invoke(app, ["hardware"])
+    assert result.exit_code == 0, result.output
+    assert "[nvidia]" in result.stdout
+    assert "optional extra  (pynvml)" not in result.stdout
+
+
+def test_run_panel_keeps_bracketed_model_name(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--backend",
+            "mock",
+            "--model",
+            "qwen[7b]",
+            "--iterations",
+            "1",
+            "--warmup",
+            "0",
+            "--no-quality",
+            "--suites",
+            "short_chat",
+            "--json",
+            str(tmp_path / "run.json"),
+            "--html",
+            str(tmp_path / "run.html"),
+            "--csv",
+            str(tmp_path / "run.csv"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "qwen[7b]" in result.stdout
+
+
 def test_suites_and_version() -> None:
     s = runner.invoke(app, ["suites"])
     assert s.exit_code == 0

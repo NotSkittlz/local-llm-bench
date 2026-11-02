@@ -39,3 +39,5 @@ landed on PR #1 after adversarial review:
 - llama.cpp `/props` `n_ctx` is per slot: skip only when one request cannot
   fit; concurrency above `total_slots` is queueing, not a skip. Same
   per-request semantics for Ollama `num_ctx` / `OLLAMA_NUM_PARALLEL`.
+- Rich console output escapes interpolated strings so notes like
+  `[nvidia]` are not swallowed as markup.
