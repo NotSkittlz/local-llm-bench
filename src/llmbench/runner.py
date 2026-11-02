@@ -33,6 +33,7 @@ from llmbench.overhead import measure_harness_overhead
 from llmbench.preflight import (
     context_overflow_message,
     context_queueing_note,
+    server_n_ctx,
     skipped_summary,
 )
 from llmbench.quality import run_quality_probe
@@ -205,20 +206,21 @@ async def run_benchmark(
         notes.append(
             "quantization is user-declared metadata; the harness does not load or quantize weights"
         )
-    if cfg.backend.type == "ollama" and cfg.model.context_length is not None:
+    ctx_len = cfg.model.context_length
+    if cfg.backend.type == "ollama" and ctx_len is not None:
         ctx_source: str | None = "applied_num_ctx"
         notes.append("context_length sent as Ollama options.num_ctx")
-    elif cfg.model.context_length is not None:
+    elif ctx_len is not None:
         ctx_source = "user_declared"
         notes.append("context_length is user-declared metadata; not sent as a server argument")
     else:
-        ctx_source = None
+        ctx_len, ctx_source = _context_length_from_server(backend_info, cfg)
 
     model = ModelInfo(
         name=cfg.model.name or cfg.backend.model,
         quantization=cfg.model.quantization,
         quantization_source=q_source,  # type: ignore[arg-type]
-        context_length=cfg.model.context_length,
+        context_length=ctx_len,
         context_length_source=ctx_source,  # type: ignore[arg-type]
         family=cfg.model.family,
     )
@@ -548,6 +550,15 @@ def _warn_thinking_budget(cfg: BenchConfig, info: BackendInfo, warnings: list[st
         "thinking may consume the whole budget before any content token. "
         "Pass --thinking off or raise max_tokens (long_context defaults to 32)."
     )
+
+
+def _context_length_from_server(
+    info: BackendInfo, cfg: BenchConfig
+) -> tuple[int | None, str | None]:
+    n_ctx, _slots, _source = server_n_ctx(info, cfg)
+    if n_ctx is not None and n_ctx > 0:
+        return n_ctx, "server"
+    return None, None
 
 
 def _validate(cfg: BenchConfig) -> None:

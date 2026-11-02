@@ -11,13 +11,17 @@ from llmbench.backends.openai_compat import OpenAICompatBackend
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.http_errors import error_message_from_payload, format_http_error
 from llmbench.preflight import context_overflow_message, context_queueing_note
+from llmbench.report import render_markdown
 from llmbench.runner import run_benchmark
 from llmbench.schema import BackendInfo, SamplingParams
 
 
-def _llamacpp_info(*, n_ctx: int = 8192, slots: int = 4) -> BackendInfo:
+def _llamacpp_info(
+    *, n_ctx: int = 8192, slots: int = 4, version: str | None = "b11193-4e7481175"
+) -> BackendInfo:
     return BackendInfo(
         type="llamacpp",
+        version=version,
         extra={
             "props": {
                 "total_slots": slots,
@@ -154,6 +158,38 @@ async def test_runner_runs_parallel_long_context_within_slot() -> None:
     assert len([t for t in result.trials if not t.warmup]) == 2
     assert result.summaries[0].n_ok == 2
     assert not any("skipping" in w for w in result.warnings)
+    assert result.model.context_length == 8192
+    assert result.model.context_length_source == "server"
+    md = render_markdown([result])
+    assert "b11193-4e7481175" in md
+    assert "llamacpp None" not in md
+
+
+@pytest.mark.asyncio
+async def test_runner_fills_ollama_context_length_from_show() -> None:
+    class _ShowBackend(MockBackend):
+        async def info(self) -> BackendInfo:
+            return BackendInfo(type="ollama", extra={"num_ctx": 8192, "context_length": 32768})
+
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="ollama",
+            base_url="http://127.0.0.1:11434",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_ShowBackend())
+    assert result.model.context_length == 8192
+    assert result.model.context_length_source == "server"
 
 
 @pytest.mark.asyncio

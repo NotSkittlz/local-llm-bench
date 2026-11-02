@@ -80,9 +80,11 @@ one-token completion has no decode rate (`null`, not `0`).
 the full `output_tokens` (server `completion_tokens` / `eval_count` when
 present), not content-only.
 
-If client and server decode differ by more than 25% relative to the server,
-the trial is flagged `decode_client_server_disagree` and the run records a
-warning. Summaries use the preferred (server) rate.
+If client and server decode differ by more than 25% relative to the server
+and the trial produced at least 16 output tokens, the trial is flagged
+`decode_client_server_disagree` and the run records a warning. Shorter
+completions are too noisy to flag. Summaries use the preferred (server)
+rate.
 
 ### Prefill tokens / second
 
@@ -246,8 +248,9 @@ silent rewrite: if you set `temperature: 0.8` in YAML, that is what we send.
 Recorded on every run: requested sampling, `sampling.applied` (what went
 on the wire, including vLLM `repetition_penalty` and Ollama `num_ctx`),
 `sampling.dropped`, per-trial `max_tokens` and the min–max range,
-quantization / context_length with a `*_source` of `user_declared` or
-`applied_num_ctx`, backend type/version, model id.
+quantization / context_length with a `*_source` of `user_declared`,
+`applied_num_ctx`, or `server` (llama.cpp `/props` n_ctx, Ollama
+`/api/show` num_ctx / context_length), backend type/version, model id.
 
 Two runs are comparable only if those fields match. `llmbench compare`
 aligns by suite name and concurrency; it will not pretend mismatched

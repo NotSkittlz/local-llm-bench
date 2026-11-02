@@ -191,3 +191,22 @@ def test_fill_prefers_server_decode_when_client_span_is_content_only() -> None:
     assert trial.decode_tps == trial.decode_tps_server
     assert FLAG_DECODE_DISAGREE in trial.flags
     assert trial.ttft_ms is not None
+
+
+def test_short_output_does_not_flag_decode_disagree() -> None:
+    trial = Trial(
+        trial_id="t",
+        suite="short_chat",
+        prompt_id="chat-03",
+        concurrency=1,
+        ok=True,
+        prompt_chars=20,
+        output_tokens=8,
+        start_ns=0,
+        first_token_ns=1_000_000,
+        last_token_ns=2_000_000,
+        end_ns=3_000_000,
+        server_timings=ServerTimings(completion_tokens=8, completion_ms=200.0),
+    )
+    fill_trial_derived(trial)
+    assert FLAG_DECODE_DISAGREE not in trial.flags

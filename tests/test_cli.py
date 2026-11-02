@@ -22,6 +22,8 @@ def test_help() -> None:
 def test_run_mock_writes_artifacts(tmp_path: Path) -> None:
     json_path = tmp_path / "run.json"
     html_path = tmp_path / "run.html"
+    csv_path = tmp_path / "run.csv"
+    md_path = tmp_path / "run.md"
     result = runner.invoke(
         app,
         [
@@ -39,13 +41,17 @@ def test_run_mock_writes_artifacts(tmp_path: Path) -> None:
             "--html",
             str(html_path),
             "--csv",
-            str(tmp_path / "run.csv"),
+            str(csv_path),
+            "--md",
+            str(md_path),
             "--label",
             "cli-mock",
         ],
     )
     assert result.exit_code == 0, result.output
     assert json_path.is_file()
+    assert md_path.is_file()
+    assert str(md_path) in result.stdout
     text = json_path.read_text(encoding="utf-8")
     assert '"synthetic": true' in text
     assert '"data_lineage": "synthetic_mock"' in text

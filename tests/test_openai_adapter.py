@@ -314,6 +314,72 @@ def test_zero_uncached_tokens_is_not_treated_as_missing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_llamacpp_info_uses_build_info() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/props"):
+            return httpx.Response(
+                200,
+                json={
+                    "build_info": "b11193-4e7481175",
+                    "total_slots": 4,
+                    "default_generation_settings": {"n_ctx": 8192},
+                },
+            )
+        if request.url.path.endswith("/v1/models"):
+            return httpx.Response(200, json={"data": [{"id": "m"}]})
+        return httpx.Response(404)
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="m"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.version == "b11193-4e7481175"
+
+
+@pytest.mark.asyncio
+async def test_llamacpp_info_falls_back_to_version_endpoint() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/props"):
+            return httpx.Response(200, json={"total_slots": 4})
+        if request.url.path.endswith("/version"):
+            return httpx.Response(200, json={"build_info": "b22222-deadbeef"})
+        if request.url.path.endswith("/v1/models"):
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(404)
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="m"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.version == "b22222-deadbeef"
+
+
+@pytest.mark.asyncio
+async def test_llamacpp_info_version_is_null_when_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/props"):
+            return httpx.Response(200, json={"total_slots": 4})
+        if request.url.path.endswith("/v1/models"):
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(404)
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="m"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.version is None
+
+
+@pytest.mark.asyncio
 async def test_connection_refused_message() -> None:
     backend = OpenAICompatBackend(
         BackendConfig(type="openai_compat", base_url="http://127.0.0.1:1", model="m"),

@@ -59,7 +59,7 @@ class ModelInfo(BaseModel):
     quantization: str | None = None
     quantization_source: Literal["user_declared"] | None = None
     context_length: int | None = None
-    context_length_source: Literal["user_declared", "applied_num_ctx"] | None = None
+    context_length_source: Literal["user_declared", "applied_num_ctx", "server"] | None = None
     family: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 

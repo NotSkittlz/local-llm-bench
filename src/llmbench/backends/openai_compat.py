@@ -72,10 +72,18 @@ class OpenAICompatBackend:
             try:
                 props = await self._client.get("/props")
                 if props.status_code == 200:
-                    extra["props"] = _small_json(props.json())
-                    version = str(props.json().get("version") or version)
+                    props_body = props.json()
+                    extra["props"] = _small_json(props_body)
+                    version = _llamacpp_version(props_body)
             except httpx.HTTPError:
                 pass
+            if not version:
+                try:
+                    version_r = await self._client.get("/version")
+                    if version_r.status_code == 200:
+                        version = _llamacpp_version_from_response(version_r)
+                except httpx.HTTPError:
+                    pass
         if self.flavor == "vllm":
             try:
                 version_r = await self._client.get("/version")
@@ -396,3 +404,27 @@ def _small_json(value: Any, limit: int = 40) -> Any:
     if isinstance(value, dict):
         return {str(k): value[k] for k, _ in zip(list(value)[:limit], range(limit), strict=False)}
     return value
+
+
+def _llamacpp_version(body: Any) -> str | None:
+    if not isinstance(body, dict):
+        return None
+    for key in ("build_info", "version", "build"):
+        val = body.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()[:80]
+    return None
+
+
+def _llamacpp_version_from_response(resp: httpx.Response) -> str | None:
+    try:
+        body = resp.json()
+    except json.JSONDecodeError:
+        body = None
+    found = _llamacpp_version(body)
+    if found:
+        return found
+    if isinstance(body, str) and body.strip():
+        return body.strip()[:80]
+    text = (resp.text or "").strip().strip('"')
+    return text[:80] if text else None

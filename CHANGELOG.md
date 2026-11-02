@@ -43,3 +43,6 @@ landed on PR #1 after adversarial review:
   `[nvidia]` are not swallowed as markup.
 - Thinking-budget warning ignores the quality probe (always
   `thinking=off`); the speed-run minimum (long_context = 32) is used.
+- Report cosmetics: `--md` path on the Wrote line; llama.cpp version from
+  `/props` `build_info` or `/version`; `model.context_length` from server
+  n_ctx / num_ctx; decode mismatch flag suppressed below 16 output tokens.

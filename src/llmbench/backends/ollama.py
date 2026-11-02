@@ -69,6 +69,11 @@ class OllamaBackend:
                 caps = body.get("capabilities")
                 if isinstance(caps, list):
                     extra["capabilities"] = [str(c) for c in caps]
+                num_ctx, context_length = _ollama_context_from_show(body)
+                if num_ctx is not None:
+                    extra["num_ctx"] = num_ctx
+                if context_length is not None:
+                    extra["context_length"] = context_length
         except httpx.HTTPError:
             pass
         raw_parallel = os.environ.get("OLLAMA_NUM_PARALLEL")
@@ -263,6 +268,32 @@ class OllamaBackend:
             flags=flags,
             inter_token_ns=inter if request.record_inter_token else [],
         )
+
+
+def _ollama_context_from_show(body: dict[str, Any]) -> tuple[int | None, int | None]:
+    """Return (parameters num_ctx, model_info context_length)."""
+
+    num_ctx = None
+    params = body.get("parameters")
+    if isinstance(params, str):
+        for line in params.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == "num_ctx":
+                parsed = _as_int(parts[1])
+                if parsed is not None and parsed > 0:
+                    num_ctx = parsed
+                    break
+    context_length = None
+    info = body.get("model_info")
+    if isinstance(info, dict):
+        for key, value in info.items():
+            name = str(key)
+            if name == "context_length" or name.endswith(".context_length"):
+                parsed = _as_int(value)
+                if parsed is not None and parsed > 0:
+                    context_length = parsed
+                    break
+    return num_ctx, context_length
 
 
 def _as_int(value: Any) -> int | None:

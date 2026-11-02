@@ -142,6 +142,34 @@ async def test_ollama_show_uses_model_key(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_ollama_info_parses_context_length(monkeypatch) -> None:
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/show"):
+            return httpx.Response(
+                200,
+                json={
+                    "parameters": "num_ctx 8192\nstop <|eot_id|>",
+                    "details": {"family": "qwen2"},
+                    "model_info": {"qwen2.context_length": 32768, "general.parameter_count": 1},
+                },
+            )
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.0-test"})
+        return httpx.Response(404)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="qwen"),
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.extra.get("num_ctx") == 8192
+    assert info.extra.get("context_length") == 32768
+
+
+@pytest.mark.asyncio
 async def test_ollama_info_reads_num_parallel_from_env(monkeypatch) -> None:
     monkeypatch.setenv("OLLAMA_NUM_PARALLEL", "4")
 

@@ -19,7 +19,7 @@ Top-level fields (abridged):
 | `synthetic` | `true` iff the mock backend produced the timings |
 | `config` | seed, warmup, iterations, concurrency, suites |
 | `sampling` | requested params plus `applied` / `dropped` and `max_tokens_min`/`max` |
-| `model` | name, quantization, context_length, plus `*_source` (`user_declared` or `applied_num_ctx`) |
+| `model` | name, quantization, context_length, plus `*_source` (`user_declared`, `applied_num_ctx`, or `server`) |
 | `backend` | type, base_url, version |
 | `hardware` | CPU, RAM, GPUs, OS |
 | `harness.overhead` | zero-delay mock TTFT floor |
@@ -46,7 +46,7 @@ are counted separately. `first_token_ns` is the first generated token of any
 kind; `first_content_ns` / `ttft_content_ms` is time to the first answer
 token. Decode tok/s prefers server timings (`decode_source=server`) with a
 client fallback over the full generated span; a >25% disagreement is
-flagged `decode_client_server_disagree`. A completed stream with only
+flagged `decode_client_server_disagree` when `output_tokens >= 16`. A completed stream with only
 reasoning (`done_reason`/`finish_reason=length`) is `ok` with flag
 `no_content_reasoning_only`. `config.thinking` records `--thinking`.
 

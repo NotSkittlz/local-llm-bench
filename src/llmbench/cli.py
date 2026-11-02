@@ -196,13 +196,15 @@ def run(
         write_json(result, json_path)
         write_csv(result, csv_path)
         write_html([result], html_path)
+        wrote = [json_path, csv_path, html_path]
         if md_path:
             write_markdown([result], md_path)
+            wrote.append(md_path)
         _print_summary(result)
-        console.print(
-            f"\nWrote [bold]{escape(str(json_path))}[/], "
-            f"{escape(str(csv_path))}, {escape(str(html_path))}"
+        rendered = ", ".join(
+            f"[bold]{escape(str(p))}[/]" if i == 0 else escape(str(p)) for i, p in enumerate(wrote)
         )
+        console.print(f"\nWrote {rendered}")
         if result.synthetic:
             console.print(
                 "[yellow]Synthetic mock timings — not hardware inference. Do not cite as performance.[/]"

@@ -10,7 +10,8 @@ Token accounting:
   ``eval_count / eval_duration``, llama.cpp ``predicted_n / predicted_ms``).
   The client fallback is ``(output_tokens - 1) / (last - first)`` over the
   full generated span (first token of any kind → last token of any kind).
-  A >25% client-vs-server disagreement is flagged on the trial.
+  A >25% client-vs-server disagreement is flagged on the trial
+  when ``output_tokens`` is at least 16 (short completions are noisy).
 * **Prefill tok/s** is uncached prompt tokens / uncached prompt milliseconds
   from ``ServerTimings``. Missing uncached counts yield ``null``, never a
   TTFT proxy labelled as server prefill. The proxy is stored separately as
@@ -27,6 +28,7 @@ from llmbench.clocks import ns_to_ms, ns_to_s
 from llmbench.schema import PercentileSummary, ServerTimings, Trial
 
 DECODE_DISAGREE_RATIO = 0.25
+DECODE_DISAGREE_MIN_TOKENS = 16
 FLAG_DECODE_DISAGREE = "decode_client_server_disagree"
 # llama.cpp always caches the chat-template prefix (~42 tokens on Qwen).
 TEMPLATE_PREFIX_MAX_TOKENS = 64
@@ -190,7 +192,11 @@ def fill_trial_derived(trial: Trial) -> Trial:
     else:
         trial.decode_tps = None
         trial.decode_source = None
-    if decode_disagrees(client, server) and FLAG_DECODE_DISAGREE not in trial.flags:
+    if (
+        (trial.output_tokens or 0) >= DECODE_DISAGREE_MIN_TOKENS
+        and decode_disagrees(client, server)
+        and FLAG_DECODE_DISAGREE not in trial.flags
+    ):
         trial.flags.append(FLAG_DECODE_DISAGREE)
     trial.prefill_tps = trial_prefill_tps(trial.server_timings)
     trial.prefill_tps_proxy = trial_prefill_tps_proxy(trial.prompt_tokens, trial.ttft_ms)
