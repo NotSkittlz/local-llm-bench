@@ -301,7 +301,12 @@ def _charts_section(runs: list[RunResult]) -> str:
 
 
 def _tables_section(runs: list[RunResult]) -> str:
-    parts = ["<h2>Summaries</h2>", "<table>", "<thead><tr>"]
+    parts = [
+        "<h2>Summaries</h2>",
+        "<table>",
+        "<caption>Measured suite summaries (warmup excluded)</caption>",
+        "<thead><tr>",
+    ]
     headers = [
         "Run",
         "Suite",
@@ -364,9 +369,8 @@ def _tables_section(runs: list[RunResult]) -> str:
         parts.append("<h3>Deltas vs first run (p50 decode tok/s, TTFT)</h3>")
         parts.append(_delta_table_html(runs))
 
-    run = runs[0]
-    if run.harness.overhead:
-        o = run.harness.overhead
+    if any(r.harness.overhead for r in runs):
+        o = next(r.harness.overhead for r in runs if r.harness.overhead)
         parts.append("<h2>Harness overhead</h2>")
         parts.append(
             f"<p>Zero-delay mock TTFT floor: <strong>{_fmt_overhead(o.zero_delay_ttft_ms)}</strong> · "
@@ -375,21 +379,36 @@ def _tables_section(runs: list[RunResult]) -> str:
             f"({o.iterations} iterations, {o.tokens_in_probe} tokens).</p>"
         )
 
-    parts.append("<h2>Trials</h2><details><summary>Raw measured trials</summary><table>")
-    parts.append(
-        "<thead><tr><th>Suite</th><th>Prompt</th><th>Conc</th><th>OK</th>"
-        "<th class='num'>TTFT ms</th><th class='num'>Decode tok/s</th>"
-        "<th class='num'>Out tok</th></tr></thead><tbody>"
-    )
-    for t in run.measured_trials()[:200]:
-        klass = "ok" if t.ok else "bad"
+    parts.append("<h2>Trials</h2>")
+    trial_cap = 200
+    for run in runs:
+        measured = run.measured_trials()
+        shown = measured[:trial_cap]
+        label = html.escape(run.label or run.model.name)
         parts.append(
-            f"<tr><td>{html.escape(t.suite)}</td><td>{html.escape(t.prompt_id)}</td>"
-            f"<td>{t.concurrency}</td><td class='{klass}'>{'yes' if t.ok else 'no'}</td>"
-            f"<td class='num'>{_n(t.ttft_ms)}</td><td class='num'>{_n(t.decode_tps)}</td>"
-            f"<td class='num'>{t.output_tokens or 0}</td></tr>"
+            f"<details><summary>Raw measured trials — {label} ({len(shown)}"
+            f"{'' if len(measured) <= trial_cap else f' of {len(measured)}'})</summary>"
         )
-    parts.append("</tbody></table></details>")
+        if len(measured) > trial_cap:
+            parts.append(
+                f"<p class='sub'>Showing the first {trial_cap} of {len(measured)} measured trials.</p>"
+            )
+        parts.append("<table>")
+        parts.append(f"<caption>Measured trials for {label}</caption>")
+        parts.append(
+            "<thead><tr><th>Suite</th><th>Prompt</th><th>Conc</th><th>OK</th>"
+            "<th class='num'>TTFT ms</th><th class='num'>Decode tok/s</th>"
+            "<th class='num'>Out tok</th></tr></thead><tbody>"
+        )
+        for t in shown:
+            klass = "ok" if t.ok else "bad"
+            parts.append(
+                f"<tr><td>{html.escape(t.suite)}</td><td>{html.escape(t.prompt_id)}</td>"
+                f"<td>{t.concurrency}</td><td class='{klass}'>{'yes' if t.ok else 'no'}</td>"
+                f"<td class='num'>{_n(t.ttft_ms)}</td><td class='num'>{_n(t.decode_tps)}</td>"
+                f"<td class='num'>{t.output_tokens or 0}</td></tr>"
+            )
+        parts.append("</tbody></table></details>")
     return "\n".join(parts)
 
 
@@ -455,7 +474,7 @@ def _markdown_single(run: RunResult) -> list[str]:
         o = run.harness.overhead
         lines += [
             "",
-            f"Harness overhead (zero-delay mock): TTFT floor **{o.zero_delay_ttft_ms:.3f} ms**.",
+            f"Harness overhead (zero-delay mock): TTFT floor **{_fmt_overhead(o.zero_delay_ttft_ms)}**.",
         ]
     return lines
 

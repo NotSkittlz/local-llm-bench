@@ -86,6 +86,11 @@ async def test_compare_two_runs() -> None:
     html = render_html([a, b])
     assert "Comparison" in html
     assert "machine-a" in html and "machine-b" in html
+    assert "Raw measured trials — machine-a" in html
+    assert "Raw measured trials — machine-b" in html
+    assert 'aria-label="' in html
+    assert "prefers-color-scheme" in html
+    assert "<caption>" in html
     md = render_markdown([a, b])
     assert "machine-a" in md and "machine-b" in md
 

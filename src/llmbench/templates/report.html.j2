@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,11 +10,11 @@
       --sans: "IBM Plex Sans", "Source Sans 3", "Segoe UI", sans-serif;
       --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
     }
-    html[data-theme="dark"] {
+    :root, html[data-theme="dark"] {
       --bg: #12110f;
       --bg-2: #1c1a17;
       --ink: #ece6dc;
-      --muted: #a39a8c;
+      --muted: #c2b8a8;
       --line: #2e2a25;
       --accent: #e07a5f;
       --accent-2: #81b0c7;
@@ -23,11 +23,26 @@
       --bad: #d67b7b;
       --banner: #3a2a1c;
     }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme]) {
+        --bg: #f3efe6;
+        --bg-2: #fffaf1;
+        --ink: #1a1714;
+        --muted: #4f4942;
+        --line: #ddd4c6;
+        --accent: #9c2f2f;
+        --accent-2: #2c4a6e;
+        --accent-3: #8a5a12;
+        --good: #2f5d3a;
+        --bad: #8f2d2d;
+        --banner: #f3e0c8;
+      }
+    }
     html[data-theme="light"] {
       --bg: #f3efe6;
       --bg-2: #fffaf1;
       --ink: #1a1714;
-      --muted: #6b645c;
+      --muted: #4f4942;
       --line: #ddd4c6;
       --accent: #9c2f2f;
       --accent-2: #2c4a6e;
@@ -99,7 +114,7 @@
       padding: 14px 16px;
     }
     .tile .k {
-      font-size: 11px;
+      font-size: 12px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
@@ -145,7 +160,8 @@
       border-bottom: 1px solid var(--line);
       vertical-align: top;
     }
-    th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+    caption { caption-side: top; text-align: left; color: var(--muted); font-size: 12px; padding: 0 0 8px; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
     td.num, th.num { text-align: right; font-family: var(--mono); }
     .ok { color: var(--good); }
     .bad { color: var(--bad); }
@@ -178,7 +194,7 @@
       <h1>{{ heading }}</h1>
       <div class="sub">{{ subtitle }}</div>
     </div>
-    <button class="theme" type="button" id="theme-btn">Light</button>
+    <button class="theme" type="button" id="theme-btn" aria-label="Switch to light theme" aria-pressed="true">Light</button>
   </header>
 
   {% if synthetic %}
@@ -228,15 +244,30 @@
     (function () {
       var root = document.documentElement;
       var btn = document.getElementById("theme-btn");
-      var stored = localStorage.getItem("llmbench-theme");
+      function readStored() {
+        try { return localStorage.getItem("llmbench-theme"); }
+        catch (e) { return null; }
+      }
+      function writeStored(value) {
+        try { localStorage.setItem("llmbench-theme", value); }
+        catch (e) {}
+      }
+      function prefersDark() {
+        try { return window.matchMedia("(prefers-color-scheme: dark)").matches; }
+        catch (e) { return true; }
+      }
       function apply(theme) {
         root.setAttribute("data-theme", theme);
         btn.textContent = theme === "dark" ? "Light" : "Dark";
+        btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+        btn.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
       }
-      apply(stored === "light" ? "light" : "dark");
+      var stored = readStored();
+      var initial = (stored === "light" || stored === "dark") ? stored : (prefersDark() ? "dark" : "light");
+      apply(initial);
       btn.addEventListener("click", function () {
         var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-        localStorage.setItem("llmbench-theme", next);
+        writeStored(next);
         apply(next);
       });
     })();
