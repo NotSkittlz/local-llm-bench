@@ -102,6 +102,33 @@ async def _close_after_first_event(
 
 
 @pytest.mark.asyncio
+async def test_truncated_http_200_is_excluded_from_percentiles() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+        transport=httpx.MockTransport(handler),
+    )
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=3,
+        suites=["short_chat"],
+        quality=QualityConfig(enabled=False),
+        memory={"enabled": False},
+        backend=BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+    )
+    result = await run_benchmark(cfg, backend=backend)
+    await backend.aclose()
+    assert result.summaries[0].n_ok == 0
+    assert result.summaries[0].n_err == 3
+    assert all(t.error_kind == "truncated" for t in result.trials)
+    assert result.summaries[0].ttft_ms.n == 0
+    assert result.summaries[0].decode_tps.n == 0
+
+
+@pytest.mark.asyncio
 async def test_empty_stream_is_error_not_zero_tps() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"data: [DONE]\n\n")

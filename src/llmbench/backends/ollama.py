@@ -94,6 +94,7 @@ class OllamaBackend:
         final: dict[str, Any] | None = None
         error: str | None = None
         error_kind: str | None = None
+        saw_done = False
 
         try:
             async with self._client.stream("POST", "/api/chat", json=payload) as resp:
@@ -140,6 +141,7 @@ class OllamaBackend:
                                 if request.collect_text:
                                     text_parts.append(content)
                             if obj.get("done"):
+                                saw_done = True
                                 final = obj
                     tail = bytes(buf).strip()
                     if tail:
@@ -149,6 +151,7 @@ class OllamaBackend:
                             pass
                         else:
                             if isinstance(obj, dict) and obj.get("done"):
+                                saw_done = True
                                 final = obj
         except httpx.ConnectError as exc:
             raise BackendConnectionError(
@@ -162,6 +165,9 @@ class OllamaBackend:
             error_kind = "http"
 
         end_ns = time.perf_counter_ns()
+        if error is None and not saw_done:
+            error = "stream ended without a terminal event (done:true)"
+            error_kind = "truncated"
         if first_token_ns is None and error is None:
             error = "stream ended without a content token"
             error_kind = "interrupted"

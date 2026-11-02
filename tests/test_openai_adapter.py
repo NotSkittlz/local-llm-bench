@@ -92,6 +92,38 @@ async def test_openai_bad_json_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_truncated_stream_without_terminal_is_not_ok() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error_kind == "truncated"
+    assert result.first_token_ns is not None
+    assert result.output_tokens >= 1
+
+
+@pytest.mark.asyncio
+async def test_finish_reason_without_done_is_terminal() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = b'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}]}\n\n'
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+
+
+@pytest.mark.asyncio
 async def test_llamacpp_cache_n_is_not_counted_as_prefill() -> None:
     from llmbench.metrics import fill_trial_derived, trial_prefill_tps
     from llmbench.schema import Trial

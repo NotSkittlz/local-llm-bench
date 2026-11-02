@@ -105,14 +105,20 @@ class OpenAICompatBackend:
         timings: dict[str, Any] | None = None
         error: str | None = None
         error_kind: str | None = None
+        saw_done = False
+        saw_finish = False
 
         def consume(events: list[bytes], now: int) -> None:
             nonlocal first_token_ns, last_token_ns, prev_token_ns
             nonlocal n_tokens, n_chars, usage, timings, error, error_kind
+            nonlocal saw_done, saw_finish
             for event in events:
                 if event.strip() == _DONE:
+                    saw_done = True
                     continue
-                delta, u, t, err = _parse_openai_event(event)
+                delta, u, t, err, finish = _parse_openai_event(event)
+                if finish:
+                    saw_finish = True
                 if err:
                     error = err
                     error_kind = "protocol"
@@ -158,6 +164,9 @@ class OpenAICompatBackend:
             error_kind = "http"
 
         end_ns = time.perf_counter_ns()
+        if error is None and not saw_done and not saw_finish:
+            error = "stream ended without a terminal event ([DONE] or finish_reason)"
+            error_kind = "truncated"
         if first_token_ns is None and error is None:
             error = "stream ended without a content token"
             error_kind = "interrupted"
@@ -206,26 +215,30 @@ def _chat_payload(
 
 def _parse_openai_event(
     raw: bytes,
-) -> tuple[str | None, dict[str, Any] | None, dict[str, Any] | None, str | None]:
+) -> tuple[str | None, dict[str, Any] | None, dict[str, Any] | None, str | None, str | None]:
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return None, None, None, f"invalid SSE JSON: {exc}"
+        return None, None, None, f"invalid SSE JSON: {exc}", None
     if not isinstance(obj, dict):
-        return None, None, None, "SSE JSON was not an object"
+        return None, None, None, "SSE JSON was not an object", None
     if obj.get("error"):
-        return None, None, None, str(obj["error"])[:300]
+        return None, None, None, str(obj["error"])[:300], None
     usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
     timings = obj.get("timings") if isinstance(obj.get("timings"), dict) else None
     delta_text = None
+    finish_reason = None
     choices = obj.get("choices") or []
     if choices:
         choice = choices[0]
+        fr = choice.get("finish_reason")
+        if isinstance(fr, str) and fr:
+            finish_reason = fr
         delta = choice.get("delta") or choice.get("message") or {}
         content = delta.get("content")
         if isinstance(content, str) and content:
             delta_text = content
-    return delta_text, usage, timings, None
+    return delta_text, usage, timings, None, finish_reason
 
 
 def _token_counts(

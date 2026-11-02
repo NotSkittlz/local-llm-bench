@@ -63,6 +63,22 @@ async def test_ollama_ndjson_and_server_timings() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ollama_truncated_without_done_is_not_ok() -> None:
+    body = json.dumps({"message": {"content": "Hi"}, "done": False}).encode() + b"\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="llama"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error_kind == "truncated"
+
+
+@pytest.mark.asyncio
 async def test_ollama_cached_tokens_are_excluded_from_prefill() -> None:
     from llmbench.metrics import trial_prefill_tps
 
