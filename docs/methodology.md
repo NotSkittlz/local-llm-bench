@@ -177,6 +177,10 @@ When enabled, the harness issues a **separate** greedy request
 The probe **does not** rewrite sampling parameters of the timed suites.
 Whatever you set for the speed run is what is sent and what is recorded.
 
+The probe always sends ``thinking=off`` and scores **content** only. If a
+reasoning model still burns the 16-token default on thinking, the probe
+retries once at 128 tokens.
+
 `--quality-strict` / `quality.strict: true` aborts the run if the probe fails.
 The default Paris substring is a smoke test, not a quantization audit.
 

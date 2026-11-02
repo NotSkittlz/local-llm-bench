@@ -26,3 +26,5 @@ landed on PR #1 after adversarial review:
 - A finished length-limited response that is only reasoning is `ok` (flag
   `no_content_reasoning_only`), not `interrupted`. `--thinking` maps to
   Ollama `think` and llama.cpp/vLLM `chat_template_kwargs`.
+- Quality probe sends `thinking=off`, scores content only, and retries at
+  128 tokens if thinking ate the 16-token budget.
