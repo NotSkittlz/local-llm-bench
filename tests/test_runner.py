@@ -90,3 +90,30 @@ async def test_runner_does_not_replay_warmup_prompts() -> None:
     measured = [t.prompt_id for t in result.trials if not t.warmup]
     assert warm != measured[:2]
     assert set(warm).isdisjoint(measured)
+
+
+@pytest.mark.asyncio
+async def test_summary_prefill_excludes_ttft_proxy() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=3,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="mock",
+            mock_output_tokens=4,
+            mock_ttft_ns=2_000_000,
+            mock_inter_token_ns=500_000,
+            mock_prompt_eval_ns_per_token=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    summary = result.summaries[0]
+    assert summary.prefill_tps.n == 0
+    assert summary.prefill_tps.p50 is None
+    assert summary.prefill_tps_proxy is not None and summary.prefill_tps_proxy.n == 3
+    assert all(t.prefill_tps is None for t in result.trials if t.ok)
+    assert all(t.prefill_source == "proxy_ttft" for t in result.trials if t.ok)
+    assert any("proxy" in n for n in summary.notes)

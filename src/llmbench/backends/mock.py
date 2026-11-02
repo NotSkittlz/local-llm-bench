@@ -121,12 +121,17 @@ class MockBackend:
         end_ns = time.perf_counter_ns()
         prompt_ms = (self.config.mock_prompt_eval_ns_per_token * prompt_tokens) / 1e6
         completion_ms = (self.config.mock_inter_token_ns * max(0, n_out - 1)) / 1e6
+        uncached_ms = prompt_ms if prompt_ms > 0 else None
         server = ServerTimings(
             prompt_tokens=prompt_tokens,
-            prompt_ms=prompt_ms if prompt_ms > 0 else None,
+            prompt_ms=uncached_ms,
+            cached_prompt_tokens=0,
+            uncached_prompt_tokens=prompt_tokens if uncached_ms is not None else None,
+            uncached_prompt_ms=uncached_ms,
             completion_tokens=n_out,
             completion_ms=completion_ms if completion_ms > 0 else None,
             total_ms=(end_ns - start_ns) / 1e6,
+            cache_hit=False,
         )
         text = "".join(texts) if request.collect_text else None
         return StreamResult(

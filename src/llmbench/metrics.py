@@ -7,8 +7,10 @@ Token accounting:
   time" unless the server says so via ``ServerTimings``.
 * **Decode tok/s** uses ``max(output_tokens - 1, 0) / (end - first_token)``.
   The first token is attributed to TTFT, not the decode loop.
-* **Prefill tok/s** prefers server prompt timings. Otherwise it is the
-  *proxy* ``prompt_tokens / TTFT``, which over-states prefill work.
+* **Prefill tok/s** is uncached prompt tokens / uncached prompt milliseconds
+  from ``ServerTimings``. Missing uncached counts yield ``null``, never a
+  TTFT proxy labelled as server prefill. The proxy is stored separately as
+  ``prefill_tps_proxy`` and is never mixed into the same percentile.
 """
 
 from __future__ import annotations
@@ -85,14 +87,27 @@ def trial_decode_tps(
     return (output_tokens - 1) / decode_s
 
 
-def trial_prefill_tps(
+def trial_prefill_tps(server: ServerTimings | None) -> float | None:
+    """Uncached prompt tokens / uncached prompt ms. Null if either is missing."""
+
+    if server is None:
+        return None
+    tokens = server.uncached_prompt_tokens
+    ms = server.uncached_prompt_ms
+    if ms is None:
+        ms = server.prompt_ms
+    if tokens is None or ms is None or tokens <= 0 or ms <= 0:
+        return None
+    return tokens / (ms / 1000.0)
+
+
+def trial_prefill_tps_proxy(
     prompt_tokens: int | None,
     ttft_ms: float | None,
-    server: ServerTimings | None,
 ) -> float | None:
-    if server is not None and server.prompt_tokens and server.prompt_ms and server.prompt_ms > 0:
-        return server.prompt_tokens / (server.prompt_ms / 1000.0)
-    if prompt_tokens is None or ttft_ms is None or ttft_ms <= 0:
+    """Client proxy: prompt_tokens / TTFT. Over-states prefill; never call it server prefill."""
+
+    if prompt_tokens is None or ttft_ms is None or prompt_tokens <= 0 or ttft_ms <= 0:
         return None
     return prompt_tokens / (ttft_ms / 1000.0)
 
@@ -108,11 +123,14 @@ def fill_trial_derived(trial: Trial) -> Trial:
         trial.first_token_ns,
         trial.last_token_ns,
     )
-    trial.prefill_tps = trial_prefill_tps(
-        trial.prompt_tokens,
-        trial.ttft_ms,
-        trial.server_timings,
-    )
+    trial.prefill_tps = trial_prefill_tps(trial.server_timings)
+    trial.prefill_tps_proxy = trial_prefill_tps_proxy(trial.prompt_tokens, trial.ttft_ms)
+    if trial.prefill_tps is not None:
+        trial.prefill_source = "server_uncached"
+    elif trial.prefill_tps_proxy is not None:
+        trial.prefill_source = "proxy_ttft"
+    else:
+        trial.prefill_source = None
     return trial
 
 

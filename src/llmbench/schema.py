@@ -133,14 +133,24 @@ class HarnessInfo(BaseModel):
 
 
 class ServerTimings(BaseModel):
-    """Optional timings reported by the server itself (Ollama, llama.cpp)."""
+    """Optional timings reported by the server itself (Ollama, llama.cpp).
+
+    Prefill tok/s uses **uncached** prompt tokens and **uncached** prompt
+    milliseconds only. Cached tokens (llama.cpp ``cache_n``, Ollama
+    ``prompt_eval_cached_count``) are stored so a cache hit is visible
+    instead of looking like infinite prefill.
+    """
 
     prompt_tokens: int | None = None
     prompt_ms: float | None = None
+    cached_prompt_tokens: int | None = None
+    uncached_prompt_tokens: int | None = None
+    uncached_prompt_ms: float | None = None
     completion_tokens: int | None = None
     completion_ms: float | None = None
     load_ms: float | None = None
     total_ms: float | None = None
+    cache_hit: bool | None = None
 
 
 class Trial(BaseModel):
@@ -173,12 +183,16 @@ class Trial(BaseModel):
     decode_ms: float | None = None
     decode_tps: float | None = None
     prefill_tps: float | None = None
+    prefill_tps_proxy: float | None = None
+    prefill_source: Literal["server_uncached", "proxy_ttft"] | None = None
     inter_token_ms: list[float] | None = None
 
     server_timings: ServerTimings | None = None
     token_source: (
         Literal["server_usage", "server_timings", "count_chunks", "approximate"] | None
     ) = None
+    reasoning_tokens: int | None = None
+    max_tokens: int | None = None
 
 
 class SuiteSummary(BaseModel):
@@ -191,7 +205,9 @@ class SuiteSummary(BaseModel):
     e2e_ms: PercentileSummary
     decode_tps: PercentileSummary
     prefill_tps: PercentileSummary
+    prefill_tps_proxy: PercentileSummary | None = None
     output_tokens: PercentileSummary
+    cache_hits: int = 0
     throughput_output_tps: float | None = None
     throughput_requests_per_s: float | None = None
     wall_ms: float | None = None

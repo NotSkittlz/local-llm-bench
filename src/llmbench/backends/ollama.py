@@ -180,19 +180,32 @@ class OllamaBackend:
         completion_tokens = n_tokens or None
         token_source = "count_chunks"
         if final:
+            total_prompt = _as_int(final.get("prompt_eval_count"))
+            cached = _as_int(final.get("prompt_eval_cached_count"))
+            uncached_ms = _ns_to_ms(final.get("prompt_eval_duration"))
+            uncached = None
+            # prompt_eval_count is all tokens; prompt_eval_duration is uncached-only.
+            # Without cached count we cannot form an honest uncached/ms rate.
+            if total_prompt is not None and cached is not None:
+                uncached = max(0, total_prompt - cached)
+            cache_hit = cached > 0 if cached is not None else None
             server = ServerTimings(
-                prompt_tokens=_as_int(final.get("prompt_eval_count")),
-                prompt_ms=_ns_to_ms(final.get("prompt_eval_duration")),
+                prompt_tokens=total_prompt,
+                prompt_ms=uncached_ms,
+                cached_prompt_tokens=cached,
+                uncached_prompt_tokens=uncached,
+                uncached_prompt_ms=uncached_ms,
                 completion_tokens=_as_int(final.get("eval_count")),
                 completion_ms=_ns_to_ms(final.get("eval_duration")),
                 load_ms=_ns_to_ms(final.get("load_duration")),
                 total_ms=_ns_to_ms(final.get("total_duration")),
+                cache_hit=cache_hit,
             )
             if server.prompt_tokens is not None:
                 prompt_tokens = server.prompt_tokens
             if server.completion_tokens is not None:
                 completion_tokens = server.completion_tokens
-                token_source = "server_timings"
+                token_source = "server_usage"
 
         return StreamResult(
             start_ns=start_ns,

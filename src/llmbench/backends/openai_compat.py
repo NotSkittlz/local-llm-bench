@@ -276,19 +276,53 @@ def _server_timings(
     completion_ms = None
     prompt_tokens = None
     completion_tokens = None
+    cached = None
+    uncached = None
+    uncached_ms = None
     if timings:
-        prompt_tokens = _as_int(timings.get("prompt_n"))
-        completion_tokens = _as_int(timings.get("predicted_n"))
+        # llama.cpp: prompt_n / prompt_ms are uncached; cache_n is the hit.
+        uncached = _as_int(timings.get("prompt_n"))
+        cached = _as_int(timings.get("cache_n"))
         prompt_ms = _as_float(timings.get("prompt_ms"))
+        uncached_ms = prompt_ms
+        completion_tokens = _as_int(timings.get("predicted_n"))
         completion_ms = _as_float(timings.get("predicted_ms"))
+        if uncached is not None and cached is not None:
+            prompt_tokens = uncached + cached
+        else:
+            prompt_tokens = uncached
+        # Optional vLLM-style per-request metrics if a server attaches them.
+        if uncached is None:
+            uncached = _as_int(timings.get("uncached_tokens") or timings.get("num_prompt_tokens"))
+        if uncached_ms is None:
+            uncached_ms = _as_float(
+                timings.get("prompt_eval_ms") or timings.get("time_to_first_token_ms")
+            )
     if usage:
-        prompt_tokens = prompt_tokens or _as_int(usage.get("prompt_tokens"))
+        usage_prompt = _as_int(usage.get("prompt_tokens"))
+        if prompt_tokens is None:
+            prompt_tokens = usage_prompt
         completion_tokens = completion_tokens or _as_int(usage.get("completion_tokens"))
+        cached = cached if cached is not None else _as_int(usage.get("prompt_tokens_cached"))
+    cache_hit = None
+    if cached is not None:
+        cache_hit = cached > 0
+    if uncached is None and prompt_tokens is not None and cached is not None:
+        uncached = max(0, prompt_tokens - cached)
+    if not any(
+        v is not None
+        for v in (prompt_tokens, prompt_ms, cached, uncached, completion_tokens, completion_ms)
+    ):
+        return None
     return ServerTimings(
         prompt_tokens=prompt_tokens,
         prompt_ms=prompt_ms,
+        cached_prompt_tokens=cached,
+        uncached_prompt_tokens=uncached,
+        uncached_prompt_ms=uncached_ms,
         completion_tokens=completion_tokens,
         completion_ms=completion_ms,
+        cache_hit=cache_hit,
     )
 
 

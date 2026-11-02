@@ -253,15 +253,23 @@ async def _run_suite(
             "throughput is completed output tokens / wall time of the measured phase "
             "(includes queueing when the server serializes)"
         )
-    if any(
-        t.ok
-        and t.prefill_tps is not None
-        and (t.server_timings is None or t.server_timings.prompt_ms is None)
+    server_prefill = [t.prefill_tps for t in ok_trials if t.prefill_tps is not None]
+    proxy_prefill = [t.prefill_tps_proxy for t in ok_trials if t.prefill_tps_proxy is not None]
+    cache_hits = sum(
+        1
         for t in ok_trials
-    ):
+        if t.server_timings is not None
+        and (t.server_timings.cache_hit or (t.server_timings.cached_prompt_tokens or 0) > 0)
+    )
+    if server_prefill:
+        notes.append("prefill tok/s is uncached prompt tokens / uncached prompt ms")
+    elif proxy_prefill:
         notes.append(
-            "prefill tok/s is the proxy prompt_tokens/TTFT; the server did not report prompt_ms"
+            "server did not report uncached prompt timings; prefill p50 is omitted "
+            "(prompt_tokens/TTFT proxy is stored separately and not mixed in)"
         )
+    if cache_hits:
+        notes.append(f"{cache_hits}/{len(ok_trials)} measured trials reported cached prompt tokens")
     summary = SuiteSummary(
         name=suite,
         concurrency=concurrency,
@@ -271,11 +279,13 @@ async def _run_suite(
         ttft_ms=summarize(t.ttft_ms for t in ok_trials if t.ttft_ms is not None),
         e2e_ms=summarize(t.e2e_ms for t in ok_trials if t.e2e_ms is not None),
         decode_tps=summarize(t.decode_tps for t in ok_trials if t.decode_tps is not None),
-        prefill_tps=summarize(t.prefill_tps for t in ok_trials if t.prefill_tps is not None),
+        prefill_tps=summarize(server_prefill),
+        prefill_tps_proxy=summarize(proxy_prefill) if proxy_prefill else None,
         output_tokens=summarize(float(t.output_tokens or 0) for t in ok_trials),
         throughput_output_tps=throughput_tps,
         throughput_requests_per_s=rps,
         wall_ms=wall_ms,
+        cache_hits=cache_hits,
         notes=notes,
     )
     return trials, summary
