@@ -77,6 +77,11 @@ def run(
     md_out: Path | None = typer.Option(None, "--md"),
     label: str | None = typer.Option(None, "--label"),
     quality: bool | None = typer.Option(None, "--quality/--no-quality"),
+    quality_strict: bool = typer.Option(
+        False,
+        "--quality-strict",
+        help="Abort the run if the greedy quality probe fails.",
+    ),
     allow_remote: bool = typer.Option(
         False,
         "--allow-remote",
@@ -112,6 +117,8 @@ def run(
             overrides["output.label"] = label
         if quality is not None:
             overrides["quality.enabled"] = quality
+        if quality_strict:
+            overrides["quality.strict"] = True
         if allow_remote:
             overrides["backend.allow_remote"] = True
         cfg = apply_cli_overrides(cfg, overrides)

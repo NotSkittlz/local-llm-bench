@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from llmbench.cli import app
+from llmbench.config import apply_cli_overrides, load_config
 
 runner = CliRunner()
 
@@ -84,6 +85,13 @@ def test_refuses_cloud_url() -> None:
     )
     assert result.exit_code == 1
     assert "non-local" in result.output.lower() or "non-local" in (result.stderr or "").lower()
+
+
+def test_quality_strict_flag_exists() -> None:
+    help_run = runner.invoke(app, ["run", "--help"])
+    assert "--quality-strict" in help_run.stdout
+    cfg = apply_cli_overrides(load_config(None), {"quality.strict": True})
+    assert cfg.quality.strict is True
 
 
 def test_suites_and_version() -> None:
