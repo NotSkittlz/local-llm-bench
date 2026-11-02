@@ -66,3 +66,27 @@ async def test_warmup_not_in_summary_n_ok() -> None:
     assert summary.n_warmup == 2
     assert summary.n_ok == 3
     assert summary.n_err == 0
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_replay_warmup_prompts() -> None:
+    cfg = BenchConfig(
+        seed=42,
+        warmup=2,
+        iterations=8,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="mock",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    warm = [t.prompt_id for t in result.trials if t.warmup]
+    measured = [t.prompt_id for t in result.trials if not t.warmup]
+    assert warm != measured[:2]
+    assert set(warm).isdisjoint(measured)

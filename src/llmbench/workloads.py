@@ -163,6 +163,24 @@ def load_suite(name: str, cfg: BenchConfig) -> list[Prompt]:
     raise ConfigError(f"unknown suite {name!r}")
 
 
+def split_suite(
+    cfg: BenchConfig, suite: str, warmup: int, iterations: int
+) -> tuple[list[Prompt], list[Prompt]]:
+    """One shuffled sequence: warmup is the prefix, measured is the rest.
+
+    Calling ``iter_prompts`` twice restarted at index 0, so the first
+    measured trials were the warmup prompts (prefix-cache hits).
+    ``long_context`` is a single body; each trial gets a unique *prefix*
+    nonce so llama.cpp / Ollama / vLLM cannot reuse the KV cache.
+    """
+
+    total = warmup + iterations
+    seq = prompt_sequence(cfg, suite, total)
+    if suite == "long_context":
+        seq = [_cache_bust(p, i, cfg.seed) for i, p in enumerate(seq)]
+    return seq[:warmup], seq[warmup:]
+
+
 def _long_context(cfg: BenchConfig) -> Prompt:
     rng = random.Random(cfg.seed)
     target = max(2_000, cfg.long_context_chars)
@@ -180,8 +198,12 @@ def _long_context(cfg: BenchConfig) -> Prompt:
 
 
 def iter_prompts(cfg: BenchConfig, suite: str, count: int) -> list[Prompt]:
-    """Cycle the suite in seed order so warmup + measured share the same pool."""
+    """Cycle the suite in seed order. Prefer ``split_suite`` for a run."""
 
+    return prompt_sequence(cfg, suite, count)
+
+
+def prompt_sequence(cfg: BenchConfig, suite: str, count: int) -> list[Prompt]:
     pool = load_suite(suite, cfg)
     rng = random.Random(cfg.seed + _stable_int(suite))
     order = list(pool)
@@ -189,6 +211,19 @@ def iter_prompts(cfg: BenchConfig, suite: str, count: int) -> list[Prompt]:
     if not order:
         raise ConfigError(f"suite {suite} has no prompts")
     return [order[i % len(order)] for i in range(count)]
+
+
+def _cache_bust(prompt: Prompt, index: int, seed: int) -> Prompt:
+    """Unique prefix so prefix-cache cannot reuse the long body."""
+
+    nonce = hashlib.sha256(f"{seed}:{index}:{prompt.prompt_id}".encode()).hexdigest()[:16]
+    header = f"[cache-bust trial={index} nonce={nonce}]\n\n"
+    return Prompt(
+        prompt_id=f"{prompt.prompt_id}-t{index:04d}",
+        suite=prompt.suite,
+        text=header + prompt.text,
+        max_tokens=prompt.max_tokens,
+    )
 
 
 def _stable_int(text: str) -> int:

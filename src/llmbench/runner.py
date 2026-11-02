@@ -35,7 +35,7 @@ from llmbench.schema import (
     SuiteSummary,
     Trial,
 )
-from llmbench.workloads import Prompt, iter_prompts, load_suite
+from llmbench.workloads import Prompt, load_suite, split_suite
 
 ProgressCb = Callable[[str], None]
 
@@ -184,8 +184,7 @@ async def _run_suite(
     concurrency: int,
     emit: ProgressCb,
 ) -> tuple[list[Trial], SuiteSummary]:
-    warmup_prompts = iter_prompts(cfg, suite, cfg.warmup)
-    measured_prompts = iter_prompts(cfg, suite, cfg.iterations)
+    warmup_prompts, measured_prompts = split_suite(cfg, suite, cfg.warmup, cfg.iterations)
     trials: list[Trial] = []
 
     for i, prompt in enumerate(warmup_prompts):
