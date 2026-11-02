@@ -312,18 +312,27 @@ def _server_timings(
         else:
             prompt_tokens = uncached
         # Optional vLLM-style per-request metrics if a server attaches them.
+        # Explicit None checks: 0 is a valid uncached count (full cache hit).
         if uncached is None:
-            uncached = _as_int(timings.get("uncached_tokens") or timings.get("num_prompt_tokens"))
+            uncached = _as_int(timings.get("uncached_tokens"))
+        if uncached is None:
+            uncached = _as_int(timings.get("num_prompt_tokens"))
         if uncached_ms is None:
-            uncached_ms = _as_float(
-                timings.get("prompt_eval_ms") or timings.get("time_to_first_token_ms")
-            )
+            uncached_ms = _as_float(timings.get("prompt_eval_ms"))
+        if uncached_ms is None:
+            uncached_ms = _as_float(timings.get("time_to_first_token_ms"))
     if usage:
         usage_prompt = _as_int(usage.get("prompt_tokens"))
         if prompt_tokens is None:
             prompt_tokens = usage_prompt
-        completion_tokens = completion_tokens or _as_int(usage.get("completion_tokens"))
-        cached = cached if cached is not None else _as_int(usage.get("prompt_tokens_cached"))
+        if completion_tokens is None:
+            completion_tokens = _as_int(usage.get("completion_tokens"))
+        if cached is None:
+            cached = _as_int(usage.get("prompt_tokens_cached"))
+        if cached is None:
+            details = usage.get("prompt_tokens_details")
+            if isinstance(details, dict):
+                cached = _as_int(details.get("cached_tokens"))
     cache_hit = None
     if cached is not None:
         cache_hit = cached > 0

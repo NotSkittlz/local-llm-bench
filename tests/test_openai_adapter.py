@@ -227,6 +227,54 @@ async def test_llamacpp_cache_n_is_not_counted_as_prefill() -> None:
 
 
 @pytest.mark.asyncio
+async def test_vllm_prompt_tokens_details_cached_tokens() -> None:
+    from llmbench.metrics import trial_prefill_tps
+
+    body = _sse(
+        {"choices": [{"delta": {"content": "x"}}]},
+        {
+            "choices": [{"delta": {}, "finish_reason": "stop"}],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 1,
+                "prompt_tokens_details": {"cached_tokens": 90},
+            },
+            "timings": {"prompt_eval_ms": 5.0},
+        },
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="vllm", base_url="http://127.0.0.1:8000", model="m"),
+        flavor="vllm",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.server_timings is not None
+    assert result.server_timings.cached_prompt_tokens == 90
+    assert result.server_timings.uncached_prompt_tokens == 10
+    assert result.server_timings.cache_hit is True
+    assert trial_prefill_tps(result.server_timings) == 2000.0  # 10 / 0.005s
+
+
+def test_zero_uncached_tokens_is_not_treated_as_missing() -> None:
+    from llmbench.backends.openai_compat import _server_timings
+    from llmbench.metrics import trial_prefill_tps
+
+    server = _server_timings(
+        {"uncached_tokens": 0, "num_prompt_tokens": 800, "prompt_eval_ms": 1.0},
+        {"prompt_tokens": 800, "prompt_tokens_details": {"cached_tokens": 800}},
+    )
+    assert server is not None
+    assert server.uncached_prompt_tokens == 0
+    assert server.cached_prompt_tokens == 800
+    assert trial_prefill_tps(server) is None
+
+
+@pytest.mark.asyncio
 async def test_connection_refused_message() -> None:
     backend = OpenAICompatBackend(
         BackendConfig(type="openai_compat", base_url="http://127.0.0.1:1", model="m"),
