@@ -400,6 +400,7 @@ async def _one_trial(
         inter_token_ms=inter_ms,
         server_timings=result.server_timings,
         token_source=result.token_source,  # type: ignore[arg-type]
+        reasoning_tokens=result.reasoning_tokens or None,
         max_tokens=sampling.max_tokens,
     )
     return fill_trial_derived(trial)

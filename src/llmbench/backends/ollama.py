@@ -52,7 +52,7 @@ class OllamaBackend:
         except httpx.HTTPError:
             extra["version_error"] = "unreachable"
         try:
-            show = await self._client.post("/api/show", json={"name": self.config.model})
+            show = await self._client.post("/api/show", json={"model": self.config.model})
             if show.status_code == 200:
                 body = show.json()
                 extra["details"] = {
@@ -87,6 +87,7 @@ class OllamaBackend:
         last_token_ns: int | None = None
         prev_token_ns: int | None = None
         n_tokens = 0
+        n_reasoning = 0
         n_chars = 0
         text_parts: list[str] = []
         inter: list[int] = []
@@ -129,6 +130,9 @@ class OllamaBackend:
                                 error_kind = "http"
                             msg = obj.get("message") or {}
                             content = msg.get("content") if isinstance(msg, dict) else None
+                            thinking = msg.get("thinking") if isinstance(msg, dict) else None
+                            if isinstance(thinking, str) and thinking:
+                                n_reasoning += 1
                             if isinstance(content, str) and content:
                                 n_tokens += 1
                                 n_chars += len(content)
@@ -218,12 +222,19 @@ class OllamaBackend:
             error_kind=error_kind,
             server_timings=server,
             token_source=token_source,
+            reasoning_tokens=n_reasoning,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 
 
 def _as_int(value: Any) -> int | None:
-    return int(value) if isinstance(value, int | float) else None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return None
 
 
 def _ns_to_ms(value: Any) -> float | None:

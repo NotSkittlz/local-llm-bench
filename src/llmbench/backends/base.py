@@ -44,6 +44,7 @@ class StreamResult:
     error_kind: str | None = None
     server_timings: ServerTimings | None = None
     token_source: str | None = None
+    reasoning_tokens: int = 0
     inter_token_ns: list[int] = field(default_factory=list)
 
 

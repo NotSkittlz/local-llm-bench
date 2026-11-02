@@ -97,6 +97,7 @@ class OpenAICompatBackend:
         last_token_ns: int | None = None
         prev_token_ns: int | None = None
         n_tokens = 0
+        n_reasoning = 0
         n_chars = 0
         text_parts: list[str] = []
         inter: list[int] = []
@@ -110,13 +111,13 @@ class OpenAICompatBackend:
 
         def consume(events: list[bytes], now: int) -> None:
             nonlocal first_token_ns, last_token_ns, prev_token_ns
-            nonlocal n_tokens, n_chars, usage, timings, error, error_kind
+            nonlocal n_tokens, n_reasoning, n_chars, usage, timings, error, error_kind
             nonlocal saw_done, saw_finish
             for event in events:
                 if event.strip() == _DONE:
                     saw_done = True
                     continue
-                delta, u, t, err, finish = _parse_openai_event(event)
+                delta, u, t, err, finish, reasoning = _parse_openai_event(event)
                 if finish:
                     saw_finish = True
                 if err:
@@ -127,6 +128,8 @@ class OpenAICompatBackend:
                     usage = u
                 if t:
                     timings = t
+                if reasoning:
+                    n_reasoning += 1
                 if delta:
                     n_tokens += 1
                     n_chars += len(delta)
@@ -189,6 +192,7 @@ class OpenAICompatBackend:
             error_kind=error_kind,
             server_timings=server,
             token_source=token_source,
+            reasoning_tokens=n_reasoning,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 
@@ -215,19 +219,22 @@ def _chat_payload(
 
 def _parse_openai_event(
     raw: bytes,
-) -> tuple[str | None, dict[str, Any] | None, dict[str, Any] | None, str | None, str | None]:
+) -> tuple[
+    str | None, dict[str, Any] | None, dict[str, Any] | None, str | None, str | None, str | None
+]:
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return None, None, None, f"invalid SSE JSON: {exc}", None
+        return None, None, None, f"invalid SSE JSON: {exc}", None, None
     if not isinstance(obj, dict):
-        return None, None, None, "SSE JSON was not an object", None
+        return None, None, None, "SSE JSON was not an object", None, None
     if obj.get("error"):
-        return None, None, None, str(obj["error"])[:300], None
+        return None, None, None, str(obj["error"])[:300], None, None
     usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
     timings = obj.get("timings") if isinstance(obj.get("timings"), dict) else None
     delta_text = None
     finish_reason = None
+    reasoning = None
     choices = obj.get("choices") or []
     if choices:
         choice = choices[0]
@@ -235,10 +242,27 @@ def _parse_openai_event(
         if isinstance(fr, str) and fr:
             finish_reason = fr
         delta = choice.get("delta") or choice.get("message") or {}
-        content = delta.get("content")
-        if isinstance(content, str) and content:
-            delta_text = content
-    return delta_text, usage, timings, None, finish_reason
+        delta_text = _content_text(delta.get("content"))
+        reasoning = _content_text(
+            delta.get("reasoning_content") or delta.get("reasoning") or delta.get("thinking")
+        )
+    return delta_text, usage, timings, None, finish_reason, reasoning
+
+
+def _content_text(content: Any) -> str | None:
+    if isinstance(content, str) and content:
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str) and item:
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text") or item.get("content")
+                if isinstance(text, str) and text:
+                    parts.append(text)
+        return "".join(parts) or None
+    return None
 
 
 def _token_counts(
@@ -248,23 +272,15 @@ def _token_counts(
     prompt: str,
 ) -> tuple[int | None, int | None, str]:
     if usage:
-        pt = usage.get("prompt_tokens")
-        ct = usage.get("completion_tokens")
-        if isinstance(pt, int) or isinstance(ct, int):
-            return (
-                int(pt) if isinstance(pt, int) else None,
-                int(ct) if isinstance(ct, int) else chunk_tokens,
-                "server_usage",
-            )
+        pt = _as_int(usage.get("prompt_tokens"))
+        ct = _as_int(usage.get("completion_tokens"))
+        if pt is not None or ct is not None:
+            return pt, ct if ct is not None else chunk_tokens, "server_usage"
     if timings:
-        pt = timings.get("prompt_n")
-        ct = timings.get("predicted_n")
-        if isinstance(pt, int) or isinstance(ct, int):
-            return (
-                int(pt) if isinstance(pt, int) else None,
-                int(ct) if isinstance(ct, int) else chunk_tokens,
-                "server_timings",
-            )
+        pt = _as_int(timings.get("prompt_n"))
+        ct = _as_int(timings.get("predicted_n"))
+        if pt is not None or ct is not None:
+            return pt, ct if ct is not None else chunk_tokens, "server_timings"
     if chunk_tokens:
         return None, chunk_tokens, "count_chunks"
     return max(1, len(prompt) // 4), None, "approximate"
@@ -331,7 +347,13 @@ def _server_timings(
 
 
 def _as_int(value: Any) -> int | None:
-    return int(value) if isinstance(value, int | float) else None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return None
 
 
 def _as_float(value: Any) -> float | None:

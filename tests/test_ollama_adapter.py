@@ -110,3 +110,49 @@ async def test_ollama_cached_tokens_are_excluded_from_prefill() -> None:
     assert result.server_timings.uncached_prompt_tokens == 10
     assert result.server_timings.cache_hit is True
     assert trial_prefill_tps(result.server_timings) == 2000.0
+
+
+@pytest.mark.asyncio
+async def test_ollama_show_uses_model_key() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/show"):
+            seen.update(json.loads(request.content))
+            return httpx.Response(200, json={"details": {"family": "llama"}})
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.0-test"})
+        return httpx.Response(404)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="llama3.2"),
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert seen.get("model") == "llama3.2"
+    assert "name" not in seen
+    assert info.extra.get("family") == "llama"
+
+
+@pytest.mark.asyncio
+async def test_ollama_thinking_is_not_decode() -> None:
+    lines = [
+        {"message": {"thinking": "plan"}, "done": False},
+        {"message": {"content": "Hi"}, "done": False},
+        {"message": {"content": ""}, "done": True, "eval_count": 1},
+    ]
+    body = b"".join(json.dumps(x).encode() + b"\n" for x in lines)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="llama"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.text == "Hi"
+    assert result.output_tokens == 1
+    assert result.reasoning_tokens == 1

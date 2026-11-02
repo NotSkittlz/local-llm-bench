@@ -92,6 +92,54 @@ async def test_openai_bad_json_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_usage_floats_and_content_arrays_count_as_tokens() -> None:
+    body = _sse(
+        {"choices": [{"delta": {"content": [{"type": "text", "text": "Hel"}]}}]},
+        {"choices": [{"delta": {"content": [{"type": "text", "text": "lo"}]}}]},
+        {
+            "choices": [{"delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 4.0, "completion_tokens": 2.0},
+        },
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+    assert result.text == "Hello"
+    assert result.prompt_tokens == 4
+    assert result.output_tokens == 2
+    assert result.token_source == "server_usage"
+
+
+@pytest.mark.asyncio
+async def test_reasoning_tokens_do_not_count_as_decode() -> None:
+    body = _sse(
+        {"choices": [{"delta": {"reasoning_content": "think"}}]},
+        {"choices": [{"delta": {"content": "Hi"}, "finish_reason": "stop"}]},
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="openai_compat", base_url="http://127.0.0.1:8080", model="m"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.text == "Hi"
+    assert result.output_tokens == 1
+    assert result.reasoning_tokens == 1
+
+
+@pytest.mark.asyncio
 async def test_truncated_stream_without_terminal_is_not_ok() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
