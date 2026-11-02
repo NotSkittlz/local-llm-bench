@@ -63,10 +63,12 @@ LOCAL_URL_CASES = [
     ("http://192.168.1.1", True),
     ("http://172.16.0.1", True),
     ("http://172.31.255.255", True),
-    ("http://169.254.1.1", True),
     ("http://[fd12:3456:789a::1]", True),
-    ("http://[fe80::1]", True),
     ("http://[::ffff:10.0.0.1]", True),
+    ("http://169.254.1.1", False),
+    ("http://169.254.169.254", False),
+    ("http://[fe80::1]", False),
+    ("http://[fd00:ec2::254]", False),
     ("http://172.15.0.1", False),
     ("http://172.32.0.1", False),
     ("http://172.217.14.206", False),
@@ -125,6 +127,33 @@ def test_prefix_match_does_not_allow_public_172() -> None:
                 }
             }
         )
+
+
+def test_link_local_and_cloud_metadata_are_refused() -> None:
+    for url in (
+        "http://169.254.169.254/",
+        "http://169.254.1.1:80",
+        "http://[fe80::1]:8080",
+        "http://[fd00:ec2::254]/",
+    ):
+        with pytest.raises(ConfigError):
+            _assert_local_url(url)
+
+
+def test_metadata_hostname_is_refused_without_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(host: str, port: object, *args: object, **kwargs: object):
+        raise AssertionError("metadata host must be blocked before DNS")
+
+    monkeypatch.setattr("socket.getaddrinfo", boom)
+    with pytest.raises(ConfigError, match="metadata"):
+        _assert_local_url("http://metadata.google.internal/")
+
+
+def test_metadata_denied_even_with_allow_remote() -> None:
+    with pytest.raises(ConfigError, match="metadata"):
+        _assert_local_url("http://169.254.169.254/", allow_remote=True)
+    with pytest.raises(ConfigError, match="metadata"):
+        _assert_local_url("http://[fd00:ec2::254]/", allow_remote=True)
 
 
 def test_allow_remote_opt_in() -> None:

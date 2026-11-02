@@ -151,9 +151,21 @@ _ALLOWED_NETWORKS = (
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("fc00::/7"),
+)
+
+# Link-local and cloud instance-metadata endpoints are not "your LAN box".
+_DENIED_NETWORKS = (
     ipaddress.ip_network("169.254.0.0/16"),
     ipaddress.ip_network("fe80::/10"),
 )
+_METADATA_IPS = (
+    ipaddress.ip_address("169.254.169.254"),
+    ipaddress.ip_address("fd00:ec2::254"),
+)
+_METADATA_HOSTS = {
+    "metadata.google.internal",
+    "metadata.google.com",
+}
 
 
 def _assert_local_url(url: str, *, allow_remote: bool = False) -> None:
@@ -165,9 +177,18 @@ def _assert_local_url(url: str, *, allow_remote: bool = False) -> None:
     host = parsed.hostname
     if not host:
         raise ConfigError(f"backend URL has no host: {url!r}")
+    if _is_metadata_host(host):
+        raise ConfigError(
+            f"refusing cloud metadata host {host!r} in backend URL {url!r}. "
+            "This is not a local inference server."
+        )
+    addresses = _resolve_host_ips(host)
+    meta = [ip for ip in addresses if _is_metadata_ip(ip)]
+    if meta:
+        shown = ", ".join(str(ip) for ip in meta)
+        raise ConfigError(f"refusing cloud metadata address {shown} in backend URL {url!r}.")
     if allow_remote:
         return
-    addresses = _resolve_host_ips(host)
     public = [ip for ip in addresses if not _is_local_ip(ip)]
     if public:
         shown = ", ".join(str(ip) for ip in public)
@@ -216,9 +237,22 @@ def _unwrap_mapped(
 
 
 def _is_local_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if _is_metadata_ip(ip):
+        return False
+    if any(ip in network for network in _DENIED_NETWORKS) or ip.is_link_local:
+        return False
     if ip.is_loopback or ip.is_unspecified:
         return True
     return any(ip in network for network in _ALLOWED_NETWORKS)
+
+
+def _is_metadata_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return any(ip == blocked for blocked in _METADATA_IPS)
+
+
+def _is_metadata_host(host: str) -> bool:
+    name = host.lower().rstrip(".")
+    return name in _METADATA_HOSTS or name.endswith(".metadata.google.internal")
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
