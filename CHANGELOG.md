@@ -46,3 +46,4 @@ landed on PR #1 after adversarial review:
 - Report cosmetics: `--md` path on the Wrote line; llama.cpp version from
   `/props` `build_info` or `/version`; `model.context_length` from server
   n_ctx / num_ctx; decode mismatch flag suppressed below 16 output tokens.
+- README notes that speculative decoding makes decode tok/s prompt-dependent.

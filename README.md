@@ -68,6 +68,8 @@ JSON schema version **1.0.0** — see [docs/schema.md](docs/schema.md).
 
 Defaults: `seed=42`, `warmup=2`, `iterations=16`, `concurrency=[1]`, greedy sampling (`T=0`). Warmup is a distinct prefix of the prompt sequence and is **excluded** from percentiles. `--thinking {default,off,low,medium,high,xhigh}` is recorded on the snapshot. `--quality-strict` aborts if the greedy probe fails.
 
+Speculative decoding (Ollama draft models / `draft_num_predict`) makes decode tok/s **prompt-dependent**: accepted draft tokens vary with content, so the same model can show different decode rates on different suites. Compare like-for-like prompts.
+
 The long version — clocks, token-count sources, thermal throttling, batching, queueing vs compute — is [docs/methodology.md](docs/methodology.md). Read it before you paste a table into a README.
 
 ## Supported backends
