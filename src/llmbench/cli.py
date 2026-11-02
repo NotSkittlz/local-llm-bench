@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 
 import typer
@@ -36,6 +37,19 @@ console = Console()
 err_console = Console(stderr=True)
 
 
+def _configure_stdio() -> None:
+    """Prefer UTF-8; fall back to ASCII-safe glyphs on legacy Windows consoles."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, AttributeError):
+            continue
+
+
 def _version_callback(value: bool) -> None:
     if value:
         console.print(f"local-llm-bench {__version__}")
@@ -52,6 +66,7 @@ def _root(
         help="Show version and exit.",
     ),
 ) -> None:
+    _configure_stdio()
     return None
 
 
@@ -265,14 +280,14 @@ def hardware() -> None:
     table.add_column("Value")
     table.add_row("OS", f"{info.os} {info.os_release}")
     table.add_row("Arch", info.arch)
-    table.add_row("CPU", info.cpu_name or "—")
+    table.add_row("CPU", info.cpu_name or "-")
     table.add_row("Cores", f"{info.cpu_cores_physical}/{info.cpu_cores_logical} phys/log")
-    table.add_row("RAM", f"{info.ram_total_mib:.0f} MiB" if info.ram_total_mib else "—")
+    table.add_row("RAM", f"{info.ram_total_mib:.0f} MiB" if info.ram_total_mib else "-")
     if info.gpus:
         for gpu in info.gpus:
             table.add_row(
                 f"GPU {gpu.index}",
-                f"{gpu.name}  {gpu.vram_total_mib or '—'} MiB ({gpu.vram_source})",
+                f"{gpu.name}  {gpu.vram_total_mib or '-'} MiB ({gpu.vram_source})",
             )
     else:
         table.add_row("GPU", "none detected")
@@ -286,7 +301,7 @@ def suites_cmd() -> None:
     """List built-in prompt suites."""
 
     for name in BUILTIN_SUITES:
-        console.print(f"• [bold]{name}[/]")
+        console.print(f"* [bold]{name}[/]")
     console.print("[dim]Configure via YAML or --suites short_chat,code,long_context[/]")
 
 
@@ -307,9 +322,9 @@ def _print_summary(result: RunResult) -> None:
             s.name,
             str(s.concurrency),
             str(s.n_ok),
-            f"{s.ttft_ms.p50:.2f} ms" if s.ttft_ms.p50 is not None else "—",
-            f"{s.decode_tps.p50:.1f} tok/s" if s.decode_tps.p50 is not None else "—",
-            f"{s.e2e_ms.p95:.1f} ms" if s.e2e_ms.p95 is not None else "—",
+            f"{s.ttft_ms.p50:.2f} ms" if s.ttft_ms.p50 is not None else "-",
+            f"{s.decode_tps.p50:.1f} tok/s" if s.decode_tps.p50 is not None else "-",
+            f"{s.e2e_ms.p95:.1f} ms" if s.e2e_ms.p95 is not None else "-",
         )
     console.print(table)
     if result.quality and result.quality.enabled:

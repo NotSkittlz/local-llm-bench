@@ -296,6 +296,12 @@ summary, not only stored as `error_kind=protocol`.
 **Power / clocks.** We do not pin GPU clocks or disable boost. Two runs on
 the same box can differ. Say so in the README you paste.
 
+**Windows.** `llmbench hardware` reads `ProcessorNameString` from the
+registry (then CIM/wmic) so the CPU is "AMD Ryzen 9 7950X3D ..." rather
+than the `platform.processor()` family string. CLI list output uses ASCII
+`*` so a cp1252 console does not mangle a bullet. Missing `pynvml` is one
+note pointing at the optional `[nvidia]` extra.
+
 ## What this tool does not measure
 
 - Training, fine-tuning, or embeddings

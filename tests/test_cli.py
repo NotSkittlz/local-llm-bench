@@ -108,6 +108,8 @@ def test_suites_and_version() -> None:
     s = runner.invoke(app, ["suites"])
     assert s.exit_code == 0
     assert "short_chat" in s.stdout
+    assert "*" in s.stdout
+    assert "•" not in s.stdout
     v = runner.invoke(app, ["--version"])
     assert v.exit_code == 0
     assert "0.1.0" in v.stdout

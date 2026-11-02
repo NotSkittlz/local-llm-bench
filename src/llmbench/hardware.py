@@ -63,6 +63,10 @@ def probe_gpus() -> tuple[list[GPUInfo], list[str]]:
 
 def _cpu_name() -> tuple[str | None, list[str]]:
     notes: list[str] = []
+    if sys.platform == "win32":
+        name = _windows_cpu_name(notes)
+        if name:
+            return name, notes
     if sys.platform.startswith("linux"):
         try:
             with open("/proc/cpuinfo", encoding="utf-8") as fh:
@@ -79,11 +83,69 @@ def _cpu_name() -> tuple[str | None, list[str]]:
     return brand, notes
 
 
+def _windows_cpu_name(notes: list[str]) -> str | None:
+    try:
+        import winreg  # type: ignore[import-not-found]
+    except ImportError:
+        winreg = None  # type: ignore[assignment]
+    if winreg is not None:
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+            )
+            try:
+                value, _typ = winreg.QueryValueEx(key, "ProcessorNameString")
+            finally:
+                winreg.CloseKey(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        except OSError as exc:
+            notes.append(f"winreg ProcessorNameString unreadable: {exc}")
+    name = _windows_cpu_name_wmic(notes)
+    if name:
+        return name
+    return None
+
+
+def _windows_cpu_name_wmic(notes: list[str]) -> str | None:
+    for argv in (
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "(Get-CimInstance Win32_Processor | Select-Object -First 1).Name",
+        ],
+        ["wmic", "cpu", "get", "Name"],
+    ):
+        exe = shutil.which(argv[0])
+        if not exe:
+            continue
+        try:
+            proc = subprocess.run(
+                [exe, *argv[1:]],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3.0,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            notes.append(f"{argv[0]} CPU name failed: {exc}")
+            continue
+        if proc.returncode != 0:
+            continue
+        lines = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+        lines = [ln for ln in lines if ln.lower() not in {"name", "name="}]
+        if lines:
+            return lines[0]
+    return None
+
+
 def _probe_nvml(notes: list[str]) -> list[GPUInfo]:
     try:
         import pynvml  # type: ignore[import-not-found]
     except ImportError:
-        notes.append("pynvml not installed; trying nvidia-smi")
+        notes.append("optional extra [nvidia] (pynvml) not installed")
         return []
     try:
         pynvml.nvmlInit()
