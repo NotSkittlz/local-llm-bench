@@ -8,6 +8,7 @@ first generated token of any kind (``message.thinking`` or ``message.content``).
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any
 
@@ -70,6 +71,10 @@ class OllamaBackend:
                     extra["capabilities"] = [str(c) for c in caps]
         except httpx.HTTPError:
             pass
+        raw_parallel = os.environ.get("OLLAMA_NUM_PARALLEL")
+        parsed_parallel = _as_int(raw_parallel) if raw_parallel else None
+        if parsed_parallel is not None and parsed_parallel > 0:
+            extra["num_parallel"] = parsed_parallel
         return BackendInfo(
             type="ollama",
             base_url=str(self._client.base_url),
@@ -267,6 +272,11 @@ def _as_int(value: Any) -> int | None:
         return value
     if isinstance(value, float):
         return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
     return None
 
 

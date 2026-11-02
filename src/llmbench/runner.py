@@ -30,7 +30,11 @@ from llmbench.metrics import (
     summarize,
 )
 from llmbench.overhead import measure_harness_overhead
-from llmbench.preflight import context_overflow_message, skipped_summary
+from llmbench.preflight import (
+    context_overflow_message,
+    context_queueing_note,
+    skipped_summary,
+)
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
 from llmbench.schema import (
@@ -124,6 +128,10 @@ async def run_benchmark(
                     warnings.append(overflow)
                     summaries.append(skipped_summary(suite, conc, overflow))
                     continue
+                queue_note = context_queueing_note(cfg, backend_info, suite=suite, concurrency=conc)
+                if queue_note:
+                    emit(f"  {queue_note}")
+                    warnings.append(queue_note)
                 suite_trials, summary = await _run_suite(
                     backend,
                     cfg,
@@ -132,6 +140,8 @@ async def run_benchmark(
                     run_id=run_id,
                     emit=emit,
                 )
+                if queue_note:
+                    summary.notes.append(queue_note)
                 trials.extend(suite_trials)
                 summaries.append(summary)
                 if summary.n_err:

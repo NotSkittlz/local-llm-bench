@@ -30,10 +30,12 @@ landed on PR #1 after adversarial review:
   128 tokens if thinking ate the 16-token budget.
 - llama.cpp template-prefix `cache_n` (~42) is a cached fraction, not a
   prompt cache hit.
-- Preflight skips a suite x concurrency wave when C x (prompt+max_tokens)
-  exceeds llama.cpp `/props` n_ctx or Ollama num_ctx; server error text is
-  copied into the summary.
+- Preflight copies HTTP/SSE error text (e.g. llama.cpp "Context size has
+  been exceeded.") onto the suite summary.
 - Windows: CPU name from ProcessorNameString; ASCII-safe `llmbench suites`;
   pynvml-missing note mentions the optional `[nvidia]` extra once.
 - Prefill tok/s is omitted for prompts under 256 tokens (fixed overhead
   dominates; not comparable to long-context prefill).
+- llama.cpp `/props` `n_ctx` is per slot: skip only when one request cannot
+  fit; concurrency above `total_slots` is queueing, not a skip. Same
+  per-request semantics for Ollama `num_ctx` / `OLLAMA_NUM_PARALLEL`.

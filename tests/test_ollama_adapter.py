@@ -113,7 +113,8 @@ async def test_ollama_cached_tokens_are_excluded_from_prefill() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ollama_show_uses_model_key() -> None:
+async def test_ollama_show_uses_model_key(monkeypatch) -> None:
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
     seen: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -137,6 +138,27 @@ async def test_ollama_show_uses_model_key() -> None:
     assert "name" not in seen
     assert info.extra.get("family") == "llama"
     assert info.extra.get("capabilities") == ["completion", "thinking"]
+    assert "num_parallel" not in info.extra
+
+
+@pytest.mark.asyncio
+async def test_ollama_info_reads_num_parallel_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("OLLAMA_NUM_PARALLEL", "4")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/show"):
+            return httpx.Response(200, json={"details": {"family": "llama"}})
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.0-test"})
+        return httpx.Response(404)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="llama3.2"),
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.extra.get("num_parallel") == 4
 
 
 @pytest.mark.asyncio
