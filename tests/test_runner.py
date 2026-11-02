@@ -95,6 +95,57 @@ async def test_runner_does_not_replay_warmup_prompts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_runner_warmup_disjoint_when_iterations_exceed_suite() -> None:
+    cfg = BenchConfig(
+        seed=42,
+        warmup=2,
+        iterations=16,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="mock",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    warm = [t.prompt_id for t in result.trials if t.warmup]
+    measured = [t.prompt_id for t in result.trials if not t.warmup]
+    assert len(measured) == 16
+    assert set(warm).isdisjoint(measured)
+
+
+@pytest.mark.asyncio
+async def test_long_context_sweep_does_not_reuse_prefixes() -> None:
+    cfg = BenchConfig(
+        seed=42,
+        warmup=0,
+        iterations=2,
+        concurrency=[1, 4],
+        suites=["long_context"],
+        long_context_chars=4000,
+        backend=BackendConfig(
+            type="mock",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    measured = [t for t in result.trials if not t.warmup]
+    assert len(measured) == 4
+    ids = [t.prompt_id for t in measured]
+    assert len(set(ids)) == 4
+    assert any("-c1-" in i for i in ids)
+    assert any("-c4-" in i for i in ids)
+
+
+@pytest.mark.asyncio
 async def test_code_suite_records_max_tokens_range() -> None:
     cfg = BenchConfig(
         warmup=0,

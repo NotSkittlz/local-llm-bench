@@ -113,6 +113,7 @@ async def run_benchmark(
                     cfg,
                     suite=suite,
                     concurrency=conc,
+                    run_id=run_id,
                     emit=emit,
                 )
                 trials.extend(suite_trials)
@@ -218,9 +219,17 @@ async def _run_suite(
     *,
     suite: str,
     concurrency: int,
+    run_id: str,
     emit: ProgressCb,
 ) -> tuple[list[Trial], SuiteSummary]:
-    warmup_prompts, measured_prompts = split_suite(cfg, suite, cfg.warmup, cfg.iterations)
+    warmup_prompts, measured_prompts = split_suite(
+        cfg,
+        suite,
+        cfg.warmup,
+        cfg.iterations,
+        concurrency=concurrency,
+        run_id=run_id,
+    )
     trials: list[Trial] = []
 
     for i, prompt in enumerate(warmup_prompts):
