@@ -1,0 +1,34 @@
+# Generates the committed samples/. Timings are simulated by the mock.
+seed: 42
+warmup: 2
+iterations: 8
+concurrency: [1, 4]
+suites: [short_chat, code, long_context]
+long_context_chars: 8000
+backend:
+  type: mock
+  model: mock-7b
+  mock_ttft_ns: 40000000
+  mock_inter_token_ns: 8000000
+  mock_output_tokens: 32
+  mock_prompt_eval_ns_per_token: 0
+model:
+  name: mock-7b
+  quantization: Q4_K_M
+  context_length: 8192
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 128
+quality:
+  enabled: true
+  expected_contains: Paris
+memory:
+  enabled: true
+  sample_interval_ms: 100
+output:
+  label: synthetic-mock
+  json_path: samples/synthetic-mock-results.json
+  csv_path: samples/synthetic-mock-results.csv
+  html_path: samples/synthetic-mock-report.html
+  markdown_path: samples/synthetic-mock-tables.md
