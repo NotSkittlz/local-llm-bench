@@ -28,6 +28,9 @@ from llmbench.schema import PercentileSummary, ServerTimings, Trial
 
 DECODE_DISAGREE_RATIO = 0.25
 FLAG_DECODE_DISAGREE = "decode_client_server_disagree"
+# llama.cpp always caches the chat-template prefix (~42 tokens on Qwen).
+TEMPLATE_PREFIX_MAX_TOKENS = 64
+CACHE_HIT_MIN_FRACTION = 0.25
 
 
 def percentile(xs: Sequence[float], p: float) -> float | None:
@@ -112,6 +115,29 @@ def decode_disagrees(client: float | None, server: float | None) -> bool:
     if client is None or server is None or server <= 0:
         return False
     return abs(client - server) / server > DECODE_DISAGREE_RATIO
+
+
+def classify_cache_hit(
+    cached: int | None,
+    prompt_tokens: int | None,
+    uncached: int | None = None,
+) -> tuple[bool | None, float | None]:
+    """A few cached prefix tokens are not a prompt-body cache hit."""
+
+    fraction = None
+    if cached is not None and prompt_tokens is not None and prompt_tokens > 0:
+        fraction = cached / prompt_tokens
+    if cached is None:
+        return None, fraction
+    if cached <= 0:
+        return False, 0.0 if fraction is None else fraction
+    if uncached == 0 and prompt_tokens is not None and prompt_tokens > TEMPLATE_PREFIX_MAX_TOKENS:
+        return True, fraction
+    if cached <= TEMPLATE_PREFIX_MAX_TOKENS:
+        return False, fraction
+    if fraction is not None:
+        return fraction >= CACHE_HIT_MIN_FRACTION, fraction
+    return True, fraction
 
 
 def trial_prefill_tps(server: ServerTimings | None) -> float | None:

@@ -16,6 +16,7 @@ import httpx
 from llmbench.backends.base import CompletionRequest, StreamResult, classify_stream_end
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.metrics import classify_cache_hit
 from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
 
@@ -215,7 +216,7 @@ class OllamaBackend:
             # Without cached count we cannot form an honest uncached/ms rate.
             if total_prompt is not None and cached is not None:
                 uncached = max(0, total_prompt - cached)
-            cache_hit = cached > 0 if cached is not None else None
+            cache_hit, fraction = classify_cache_hit(cached, total_prompt, uncached)
             server = ServerTimings(
                 prompt_tokens=total_prompt,
                 prompt_ms=uncached_ms,
@@ -227,6 +228,7 @@ class OllamaBackend:
                 load_ms=_ns_to_ms(final.get("load_duration")),
                 total_ms=_ns_to_ms(final.get("total_duration")),
                 cache_hit=cache_hit,
+                cached_prompt_fraction=fraction,
             )
             if server.prompt_tokens is not None:
                 prompt_tokens = server.prompt_tokens

@@ -28,3 +28,5 @@ landed on PR #1 after adversarial review:
   Ollama `think` and llama.cpp/vLLM `chat_template_kwargs`.
 - Quality probe sends `thinking=off`, scores content only, and retries at
   128 tokens if thinking ate the 16-token budget.
+- llama.cpp template-prefix `cache_n` (~42) is a cached fraction, not a
+  prompt cache hit.

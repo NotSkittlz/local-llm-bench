@@ -22,7 +22,12 @@ from llmbench.config import REASONING_BUDGET_WARN_TOKENS, BenchConfig
 from llmbench.exceptions import ConfigError, LLMBenchError
 from llmbench.hardware import probe_hardware
 from llmbench.memory import MemorySampler
-from llmbench.metrics import FLAG_DECODE_DISAGREE, fill_trial_derived, summarize
+from llmbench.metrics import (
+    FLAG_DECODE_DISAGREE,
+    TEMPLATE_PREFIX_MAX_TOKENS,
+    fill_trial_derived,
+    summarize,
+)
 from llmbench.overhead import measure_harness_overhead
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
@@ -316,10 +321,14 @@ async def _run_suite(
     server_prefill = [t.prefill_tps for t in ok_trials if t.prefill_tps is not None]
     proxy_prefill = [t.prefill_tps_proxy for t in ok_trials if t.prefill_tps_proxy is not None]
     cache_hits = sum(
+        1 for t in ok_trials if t.server_timings is not None and t.server_timings.cache_hit
+    )
+    prefix_cached = sum(
         1
         for t in ok_trials
         if t.server_timings is not None
-        and (t.server_timings.cache_hit or (t.server_timings.cached_prompt_tokens or 0) > 0)
+        and (t.server_timings.cached_prompt_tokens or 0) > 0
+        and not t.server_timings.cache_hit
     )
     if server_prefill:
         notes.append("prefill tok/s is uncached prompt tokens / uncached prompt ms")
@@ -329,7 +338,15 @@ async def _run_suite(
             "(prompt_tokens/TTFT proxy is stored separately and not mixed in)"
         )
     if cache_hits:
-        notes.append(f"{cache_hits}/{len(ok_trials)} measured trials reported cached prompt tokens")
+        notes.append(
+            f"{cache_hits}/{len(ok_trials)} measured trials had a prompt cache hit "
+            "(beyond the chat-template prefix)"
+        )
+    elif prefix_cached:
+        notes.append(
+            f"{prefix_cached}/{len(ok_trials)} trials cached a short template prefix "
+            f"(≤{TEMPLATE_PREFIX_MAX_TOKENS} tokens); not counted as prompt cache hits"
+        )
     reasoning_only = sum(1 for t in ok_trials if FLAG_NO_CONTENT_REASONING in t.flags)
     if reasoning_only:
         notes.append(

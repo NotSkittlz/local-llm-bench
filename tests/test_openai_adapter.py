@@ -209,6 +209,7 @@ async def test_llamacpp_cache_n_is_not_counted_as_prefill() -> None:
     assert result.server_timings.cached_prompt_tokens == 799
     assert result.server_timings.uncached_prompt_tokens == 1
     assert result.server_timings.cache_hit is True
+    assert result.server_timings.cached_prompt_fraction == 799 / 800
     assert trial_prefill_tps(result.server_timings) == 500.0  # 1 token / 0.002s
     trial = Trial(
         trial_id="t",
@@ -262,6 +263,40 @@ async def test_vllm_prompt_tokens_details_cached_tokens() -> None:
     assert result.server_timings.uncached_prompt_tokens == 10
     assert result.server_timings.cache_hit is True
     assert trial_prefill_tps(result.server_timings) == 2000.0  # 10 / 0.005s
+
+
+@pytest.mark.asyncio
+async def test_llamacpp_template_prefix_is_not_a_cache_hit() -> None:
+    body = _sse(
+        {"choices": [{"delta": {"content": "x"}}]},
+        {
+            "choices": [{"delta": {}, "finish_reason": "stop"}],
+            "timings": {
+                "prompt_n": 20,
+                "prompt_ms": 165.5,
+                "predicted_n": 8,
+                "predicted_ms": 180.0,
+                "cache_n": 42,
+            },
+            "usage": {"prompt_tokens": 62, "completion_tokens": 8},
+        },
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="m"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.server_timings is not None
+    assert result.server_timings.cached_prompt_tokens == 42
+    assert result.server_timings.uncached_prompt_tokens == 20
+    assert result.server_timings.cache_hit is False
+    assert result.server_timings.cached_prompt_fraction == 42 / 62
 
 
 def test_zero_uncached_tokens_is_not_treated_as_missing() -> None:

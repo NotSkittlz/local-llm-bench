@@ -5,6 +5,7 @@ import math
 from llmbench.metrics import (
     FLAG_DECODE_DISAGREE,
     approx_tokens_from_chars,
+    classify_cache_hit,
     fill_trial_derived,
     percentile,
     summarize,
@@ -109,6 +110,19 @@ def test_summarize_does_not_mix_proxy_and_server() -> None:
 def test_approx_tokens() -> None:
     assert approx_tokens_from_chars(0) == 1
     assert approx_tokens_from_chars(16) == 4
+
+
+def test_template_prefix_cache_is_not_a_hit() -> None:
+    hit, frac = classify_cache_hit(42, 62, uncached=20)
+    assert hit is False
+    assert frac is not None
+    assert abs(frac - 42 / 62) < 1e-9
+    hit_long, frac_long = classify_cache_hit(42, 3450, uncached=3408)
+    assert hit_long is False
+    assert frac_long is not None and frac_long < 0.02
+    real, real_frac = classify_cache_hit(799, 800, uncached=1)
+    assert real is True
+    assert real_frac is not None and real_frac > 0.9
 
 
 def test_server_decode_matches_ollama_eval_ground_truth() -> None:

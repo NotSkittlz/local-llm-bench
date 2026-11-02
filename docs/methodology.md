@@ -104,8 +104,10 @@ server prefill. That proxy is stored as `prefill_tps_proxy` and summarised
 separately. Percentiles never mix the two.
 
 `long_context` trials get a unique prefix nonce so later measured trials
-are not prefix-cache hits on the same body. Cache hits that still happen
-are counted on the suite summary.
+are not prefix-cache hits on the same body. `cache_hit` is true only when
+cached tokens exceed the shared chat-template prefix (more than 64 tokens)
+or the whole prompt body is cached. A llama.cpp `cache_n` of ~42 is the
+template prefix and is recorded as `cached_prompt_fraction`, not a hit.
 
 ### End-to-end latency
 

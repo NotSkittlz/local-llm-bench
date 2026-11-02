@@ -19,6 +19,7 @@ from llmbench.backends.base import CompletionRequest, StreamResult, classify_str
 from llmbench.backends.sse import feed_sse, flush_sse
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.metrics import classify_cache_hit
 from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
 
@@ -354,11 +355,9 @@ def _server_timings(
             details = usage.get("prompt_tokens_details")
             if isinstance(details, dict):
                 cached = _as_int(details.get("cached_tokens"))
-    cache_hit = None
-    if cached is not None:
-        cache_hit = cached > 0
     if uncached is None and prompt_tokens is not None and cached is not None:
         uncached = max(0, prompt_tokens - cached)
+    cache_hit, fraction = classify_cache_hit(cached, prompt_tokens, uncached)
     if not any(
         v is not None
         for v in (prompt_tokens, prompt_ms, cached, uncached, completion_tokens, completion_ms)
@@ -373,6 +372,7 @@ def _server_timings(
         completion_tokens=completion_tokens,
         completion_ms=completion_ms,
         cache_hit=cache_hit,
+        cached_prompt_fraction=fraction,
     )
 
 
