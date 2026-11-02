@@ -164,7 +164,13 @@ def load_suite(name: str, cfg: BenchConfig) -> list[Prompt]:
 
 
 def split_suite(
-    cfg: BenchConfig, suite: str, warmup: int, iterations: int
+    cfg: BenchConfig,
+    suite: str,
+    warmup: int,
+    iterations: int,
+    *,
+    concurrency: int = 1,
+    run_id: str = "",
 ) -> tuple[list[Prompt], list[Prompt]]:
     """One shuffled sequence: warmup is the prefix, measured is the rest.
 
@@ -172,13 +178,33 @@ def split_suite(
     measured trials were the warmup prompts (prefix-cache hits).
     ``long_context`` is a single body; each trial gets a unique *prefix*
     nonce so llama.cpp / Ollama / vLLM cannot reuse the KV cache.
+
+    When ``warmup + iterations`` exceeds the suite size the sequence wraps.
+    Wrapping would replay warmup bodies as measured trials; those (and every
+    ``long_context`` trial) are cache-busted. The nonce includes concurrency
+    and run id so a ``[1, 4]`` sweep does not replay the same prefixes.
     """
 
+    pool = load_suite(suite, cfg)
     total = warmup + iterations
     seq = prompt_sequence(cfg, suite, total)
-    if suite == "long_context":
-        seq = [_cache_bust(p, i, cfg.seed) for i, p in enumerate(seq)]
-    return seq[:warmup], seq[warmup:]
+    out: list[Prompt] = []
+    for i, prompt in enumerate(seq):
+        wrapped = i >= len(pool)
+        if suite == "long_context" or wrapped:
+            out.append(
+                _cache_bust(
+                    prompt,
+                    i,
+                    cfg.seed,
+                    concurrency=concurrency,
+                    suite=suite,
+                    run_id=run_id,
+                )
+            )
+        else:
+            out.append(prompt)
+    return out[:warmup], out[warmup:]
 
 
 def _long_context(cfg: BenchConfig) -> Prompt:
@@ -213,13 +239,22 @@ def prompt_sequence(cfg: BenchConfig, suite: str, count: int) -> list[Prompt]:
     return [order[i % len(order)] for i in range(count)]
 
 
-def _cache_bust(prompt: Prompt, index: int, seed: int) -> Prompt:
+def _cache_bust(
+    prompt: Prompt,
+    index: int,
+    seed: int,
+    *,
+    concurrency: int = 1,
+    suite: str = "",
+    run_id: str = "",
+) -> Prompt:
     """Unique prefix so prefix-cache cannot reuse the long body."""
 
-    nonce = hashlib.sha256(f"{seed}:{index}:{prompt.prompt_id}".encode()).hexdigest()[:16]
-    header = f"[cache-bust trial={index} nonce={nonce}]\n\n"
+    material = f"{run_id}:{suite}:{concurrency}:{index}:{prompt.prompt_id}:{seed}"
+    nonce = hashlib.sha256(material.encode()).hexdigest()[:16]
+    header = f"[cache-bust trial={index} conc={concurrency} nonce={nonce}]\n\n"
     return Prompt(
-        prompt_id=f"{prompt.prompt_id}-t{index:04d}",
+        prompt_id=f"{prompt.prompt_id}-c{concurrency}-t{index:04d}",
         suite=prompt.suite,
         text=header + prompt.text,
         max_tokens=prompt.max_tokens,

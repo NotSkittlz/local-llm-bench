@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from llmbench.config import BenchConfig
 from llmbench.workloads import iter_prompts, load_suite, split_suite
 
@@ -42,6 +44,38 @@ def test_warmup_is_not_replayed_as_measured() -> None:
     assert [p.prompt_id for p in full[:2]] == warm_ids
     assert [p.prompt_id for p in full[2:]] == measured_ids
     assert set(warm_ids).isdisjoint(measured_ids)
+
+
+@pytest.mark.parametrize("iterations", [16, 24, 40])
+def test_measured_never_reuses_warmup_when_suite_wraps(iterations: int) -> None:
+    """Default n=16 exceeds the 12-prompt short_chat pool; wraps must not replay warmup."""
+
+    cfg = BenchConfig(seed=42, warmup=2, iterations=iterations)
+    pool = load_suite("short_chat", cfg)
+    assert iterations + 2 > len(pool)
+    warm, measured = split_suite(cfg, "short_chat", 2, iterations)
+    assert len(measured) == iterations
+    warm_ids = [p.prompt_id for p in warm]
+    measured_ids = [p.prompt_id for p in measured]
+    assert set(warm_ids).isdisjoint(measured_ids)
+    warm_bodies = [p.text for p in warm]
+    assert not any(t in warm_bodies for t in (p.text for p in measured))
+    wrapped = [p for p in measured if p.text.startswith("[cache-bust")]
+    assert wrapped
+    for prompt in wrapped:
+        assert "nonce=" in prompt.text[:120]
+        # Prefix nonce so the wrapped body is not a prefix-cache hit.
+        assert not any(prompt.text.startswith(body) for body in warm_bodies)
+
+
+def test_long_context_nonce_differs_across_concurrency() -> None:
+    cfg = BenchConfig(seed=42, warmup=1, iterations=2, long_context_chars=4000)
+    _, a = split_suite(cfg, "long_context", 1, 2, concurrency=1, run_id="run-a")
+    _, b = split_suite(cfg, "long_context", 1, 2, concurrency=4, run_id="run-a")
+    assert [p.text for p in a] != [p.text for p in b]
+    assert [p.prompt_id for p in a] != [p.prompt_id for p in b]
+    assert all("conc=1" in p.text for p in a)
+    assert all("conc=4" in p.text for p in b)
 
 
 def test_long_context_trials_are_cache_busted() -> None:
