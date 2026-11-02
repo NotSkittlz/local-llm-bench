@@ -197,7 +197,9 @@ class Trial(BaseModel):
     decode_source: Literal["server", "client"] | None = None
     prefill_tps: float | None = None
     prefill_tps_proxy: float | None = None
-    prefill_source: Literal["server_uncached", "proxy_ttft"] | None = None
+    prefill_source: (
+        Literal["server_uncached", "proxy_ttft", "not_meaningful_short_prompt"] | None
+    ) = None
     inter_token_ms: list[float] | None = None
 
     server_timings: ServerTimings | None = None

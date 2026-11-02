@@ -24,6 +24,7 @@ from llmbench.hardware import probe_hardware
 from llmbench.memory import MemorySampler
 from llmbench.metrics import (
     FLAG_DECODE_DISAGREE,
+    PREFILL_MIN_PROMPT_TOKENS,
     TEMPLATE_PREFIX_MAX_TOKENS,
     fill_trial_derived,
     summarize,
@@ -343,6 +344,12 @@ async def _run_suite(
         and (t.server_timings.cached_prompt_tokens or 0) > 0
         and not t.server_timings.cache_hit
     )
+    short_prefill = sum(1 for t in ok_trials if t.prefill_source == "not_meaningful_short_prompt")
+    if short_prefill:
+        notes.append(
+            f"prefill omitted for {short_prefill} trial(s) with prompt_tokens "
+            f"< {PREFILL_MIN_PROMPT_TOKENS} (fixed overhead dominates on short prompts)"
+        )
     if server_prefill:
         notes.append("prefill tok/s is uncached prompt tokens / uncached prompt ms")
     elif proxy_prefill:

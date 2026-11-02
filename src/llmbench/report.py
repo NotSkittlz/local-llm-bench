@@ -357,7 +357,8 @@ def _tables_section(runs: list[RunResult]) -> str:
                     note_bits.append(n)
     parts.append(
         "<p class='sub'>Prefill (server) is uncached prompt tokens / uncached prompt ms. "
-        "Prefill proxy is prompt_tokens/TTFT and is never mixed into the server column.</p>"
+        "Prefill proxy is prompt_tokens/TTFT and is never mixed into the server column. "
+        "Prefill for prompts under 256 tokens is omitted (fixed overhead dominates).</p>"
     )
     if note_bits:
         parts.append("<ul class='notes'>")

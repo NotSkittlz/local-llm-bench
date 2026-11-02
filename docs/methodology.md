@@ -103,6 +103,12 @@ We do **not** fall through to `prompt_tokens / TTFT` while labelling it
 server prefill. That proxy is stored as `prefill_tps_proxy` and summarised
 separately. Percentiles never mix the two.
 
+Prefill on prompts shorter than **256 tokens** is omitted
+(`prefill_source=not_meaningful_short_prompt`). A 20-token chat prompt's
+"prefill tok/s" is dominated by fixed HTTP/kernel overhead, not kernel
+compute; quoting ~150 tok/s next to a 3k-token ~2200 tok/s figure is
+misleading.
+
 `long_context` trials get a unique prefix nonce so later measured trials
 are not prefix-cache hits on the same body. `cache_hit` is true only when
 cached tokens exceed the shared chat-template prefix (more than 64 tokens)

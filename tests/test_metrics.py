@@ -84,20 +84,44 @@ def test_prefill_proxy_is_separate_and_not_mixed() -> None:
     assert trial_prefill_tps_proxy(80, 40.0) == 2000.0
     trial = Trial(
         trial_id="t",
-        suite="short_chat",
+        suite="long_context",
         prompt_id="p",
         concurrency=1,
         ok=True,
-        prompt_chars=10,
-        prompt_tokens=80,
+        prompt_chars=1200,
+        prompt_tokens=300,
         start_ns=0,
         first_token_ns=40_000_000,
         end_ns=80_000_000,
     )
     fill_trial_derived(trial)
     assert trial.prefill_tps is None
-    assert trial.prefill_tps_proxy == 2000.0
+    assert trial.prefill_tps_proxy == 7500.0
     assert trial.prefill_source == "proxy_ttft"
+
+
+def test_short_prompt_prefill_is_not_meaningful() -> None:
+    trial = Trial(
+        trial_id="t",
+        suite="short_chat",
+        prompt_id="p",
+        concurrency=1,
+        ok=True,
+        prompt_chars=10,
+        prompt_tokens=19,
+        start_ns=0,
+        first_token_ns=40_000_000,
+        end_ns=80_000_000,
+        server_timings=ServerTimings(
+            prompt_tokens=19,
+            uncached_prompt_tokens=19,
+            uncached_prompt_ms=121.0,
+        ),
+    )
+    fill_trial_derived(trial)
+    assert trial.prefill_tps is None
+    assert trial.prefill_tps_proxy is None
+    assert trial.prefill_source == "not_meaningful_short_prompt"
 
 
 def test_summarize_does_not_mix_proxy_and_server() -> None:

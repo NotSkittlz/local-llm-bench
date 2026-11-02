@@ -33,7 +33,8 @@ Top-level fields (abridged):
 
 Prefill: `prefill_tps` is uncached-only server timing. `prefill_tps_proxy`
 is `prompt_tokens / TTFT`. `prefill_source` is `server_uncached` or
-`proxy_ttft`. Summaries never mix them. `server_timings` includes
+`proxy_ttft`, or `not_meaningful_short_prompt` (prompt under 256 tokens).
+Summaries never mix them. Prefill percentiles omit short prompts. `server_timings` includes
 `cached_prompt_tokens`, `uncached_prompt_tokens`, `uncached_prompt_ms`,
 `cache_hit`, and `cached_prompt_fraction`. `cache_hit` ignores a short
 chat-template prefix (≤64 tokens). vLLM `usage.prompt_tokens_details.cached_tokens` is

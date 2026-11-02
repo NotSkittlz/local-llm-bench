@@ -31,6 +31,7 @@ FLAG_DECODE_DISAGREE = "decode_client_server_disagree"
 # llama.cpp always caches the chat-template prefix (~42 tokens on Qwen).
 TEMPLATE_PREFIX_MAX_TOKENS = 64
 CACHE_HIT_MIN_FRACTION = 0.25
+PREFILL_MIN_PROMPT_TOKENS = 256
 
 
 def percentile(xs: Sequence[float], p: float) -> float | None:
@@ -193,7 +194,14 @@ def fill_trial_derived(trial: Trial) -> Trial:
         trial.flags.append(FLAG_DECODE_DISAGREE)
     trial.prefill_tps = trial_prefill_tps(trial.server_timings)
     trial.prefill_tps_proxy = trial_prefill_tps_proxy(trial.prompt_tokens, trial.ttft_ms)
-    if trial.prefill_tps is not None:
+    short_prompt = (
+        trial.prompt_tokens is not None and trial.prompt_tokens < PREFILL_MIN_PROMPT_TOKENS
+    )
+    if short_prompt and (trial.prefill_tps is not None or trial.prefill_tps_proxy is not None):
+        trial.prefill_tps = None
+        trial.prefill_tps_proxy = None
+        trial.prefill_source = "not_meaningful_short_prompt"
+    elif trial.prefill_tps is not None:
         trial.prefill_source = "server_uncached"
     elif trial.prefill_tps_proxy is not None:
         trial.prefill_source = "proxy_ttft"

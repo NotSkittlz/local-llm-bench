@@ -190,10 +190,9 @@ async def test_summary_prefill_excludes_ttft_proxy() -> None:
     summary = result.summaries[0]
     assert summary.prefill_tps.n == 0
     assert summary.prefill_tps.p50 is None
-    assert summary.prefill_tps_proxy is not None and summary.prefill_tps_proxy.n == 3
     assert all(t.prefill_tps is None for t in result.trials if t.ok)
-    assert all(t.prefill_source == "proxy_ttft" for t in result.trials if t.ok)
-    assert any("proxy" in n for n in summary.notes)
+    assert all(t.prefill_source == "not_meaningful_short_prompt" for t in result.trials if t.ok)
+    assert any("256" in n for n in summary.notes)
 
 
 class _ThinkingBackend(MockBackend):

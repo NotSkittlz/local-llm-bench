@@ -35,3 +35,5 @@ landed on PR #1 after adversarial review:
   copied into the summary.
 - Windows: CPU name from ProcessorNameString; ASCII-safe `llmbench suites`;
   pynvml-missing note mentions the optional `[nvidia]` extra once.
+- Prefill tok/s is omitted for prompts under 256 tokens (fixed overhead
+  dominates; not comparable to long-context prefill).
