@@ -5,13 +5,13 @@ import hashlib
 import pytest
 
 from llmbench.backends.mock import MockBackend
-from llmbench.config import BenchConfig, QualityConfig
+from llmbench.config import BackendConfig, BenchConfig, QualityConfig
 from llmbench.quality import run_quality_probe
 
 
 @pytest.mark.asyncio
 async def test_quality_probe_passes_on_mock_paris() -> None:
-    cfg = BenchConfig()
+    cfg = BenchConfig(backend=BackendConfig(type="mock", mock_ttft_ns=0, mock_inter_token_ns=0))
     backend = MockBackend(cfg.backend)
     probe = await run_quality_probe(backend, cfg)
     assert probe.enabled is True
@@ -25,7 +25,10 @@ async def test_quality_probe_passes_on_mock_paris() -> None:
 
 @pytest.mark.asyncio
 async def test_quality_probe_hash_mismatch() -> None:
-    cfg = BenchConfig(quality=QualityConfig(expected_sha256="deadbeef" * 8, expected_contains=None))
+    cfg = BenchConfig(
+        backend=BackendConfig(type="mock", mock_ttft_ns=0, mock_inter_token_ns=0),
+        quality=QualityConfig(expected_sha256="deadbeef" * 8, expected_contains=None),
+    )
     backend = MockBackend(cfg.backend)
     probe = await run_quality_probe(backend, cfg)
     assert probe.hash_match is False

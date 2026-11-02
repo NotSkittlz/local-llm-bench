@@ -140,6 +140,8 @@ async def run_benchmark(
         )
     if synthetic:
         notes.append("synthetic timings from the in-process mock backend; not hardware inference")
+        if cfg.backend.mock_ttft_ns == 0 and cfg.backend.mock_inter_token_ns == 0:
+            warnings.append("mock delays are zero; reported tok/s is harness speed, not a model")
 
     flavor = cfg.backend.type
     wire = map_sampling(flavor, cfg.sampling, context_length=cfg.model.context_length)

@@ -30,9 +30,10 @@ class BackendConfig(BaseModel):
     base_url: str | None = None
     model: str = "mock-7b"
     api_key: str | None = None
-    # Mock-only simulated compute (nanoseconds). Zero means "as fast as Python".
-    mock_ttft_ns: int = 0
-    mock_inter_token_ns: int = 0
+    # Mock-only simulated compute (nanoseconds). Zero means "as fast as Python"
+    # and is reserved for the overhead probe; the default demo is human-scale.
+    mock_ttft_ns: int = 40_000_000
+    mock_inter_token_ns: int = 8_000_000
     mock_output_tokens: int = 32
     mock_prompt_eval_ns_per_token: int = 0
     # Optional PID whose RSS we sample as "backend process".

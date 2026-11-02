@@ -57,7 +57,9 @@ async def test_warmup_not_in_summary_n_ok() -> None:
         iterations=3,
         concurrency=[1],
         suites=["code"],
-        backend=BackendConfig(type="mock", mock_output_tokens=4),
+        backend=BackendConfig(
+            type="mock", mock_output_tokens=4, mock_ttft_ns=0, mock_inter_token_ns=0
+        ),
         quality=QualityConfig(enabled=False),
         memory=MemoryConfig(enabled=False),
     )

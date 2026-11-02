@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -50,6 +51,11 @@ def test_run_mock_writes_artifacts(tmp_path: Path) -> None:
     html = html_path.read_text(encoding="utf-8")
     assert "Synthetic data" in html
     assert "cli-mock" in html
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    decode = payload["summaries"][0]["decode_tps"]["p50"]
+    ttft = payload["summaries"][0]["ttft_ms"]["p50"]
+    assert decode is not None and decode < 10_000
+    assert ttft is not None and ttft > 5.0
 
 
 def test_refuses_public_172_and_attacker_hostname() -> None:

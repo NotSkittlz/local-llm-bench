@@ -16,6 +16,12 @@ def _req(**kwargs: object) -> CompletionRequest:
     )
 
 
+def test_default_mock_delays_match_the_honest_demo() -> None:
+    cfg = BackendConfig()
+    assert cfg.mock_ttft_ns == 40_000_000
+    assert cfg.mock_inter_token_ns == 8_000_000
+
+
 @pytest.mark.asyncio
 async def test_zero_delay_mock_is_fast() -> None:
     backend = MockBackend(

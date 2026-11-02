@@ -183,7 +183,9 @@ async def test_concurrency_trial_counts_and_unique_ids() -> None:
         iterations=12,
         concurrency=[4],
         suites=["short_chat"],
-        backend=BackendConfig(type="mock", mock_output_tokens=4),
+        backend=BackendConfig(
+            type="mock", mock_output_tokens=4, mock_ttft_ns=0, mock_inter_token_ns=0
+        ),
         quality=QualityConfig(enabled=False),
         memory={"enabled": False},
     )
@@ -207,7 +209,7 @@ async def test_mock_interrupt_does_not_count_as_ok() -> None:
         suites=["short_chat"],
         quality=QualityConfig(enabled=False),
         memory={"enabled": False},
-        backend=BackendConfig(type="mock"),
+        backend=BackendConfig(type="mock", mock_ttft_ns=0, mock_inter_token_ns=0),
     )
     result = await run_benchmark(cfg, backend=backend)
     assert result.summaries[0].n_ok == 0
@@ -228,7 +230,7 @@ def test_corrupt_json_report(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_quality_strict_aborts() -> None:
     cfg = BenchConfig(
-        backend=BackendConfig(type="mock"),
+        backend=BackendConfig(type="mock", mock_ttft_ns=0, mock_inter_token_ns=0),
         quality=QualityConfig(enabled=True, expected_contains="THIS_WILL_NOT_MATCH", strict=True),
         warmup=0,
         iterations=1,
