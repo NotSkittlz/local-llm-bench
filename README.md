@@ -59,14 +59,14 @@ JSON schema version **1.0.0** — see [docs/schema.md](docs/schema.md).
 | --- | --- |
 | TTFT | Client time to first generated token of any kind (`perf_counter_ns`); `ttft_content_ms` is time to first *content* token |
 | Decode tok/s | Server `eval_count/eval_duration` or `predicted_n/predicted_ms` when present; else `(output_tokens − 1) / (last − first)` over the full generated span |
-| Prefill tok/s | Uncached prompt tokens / uncached prompt ms (null if unknown). Proxy `prompt_tokens / TTFT` is stored separately and never mixed in |
+| Prefill tok/s | Uncached prompt tokens / uncached prompt ms (null if unknown; omitted for prompts under 256 tokens). Proxy `prompt_tokens / TTFT` is stored separately and never mixed in |
 | E2E p50 / p95 | End-to-end latency over successful measured trials |
 | Concurrency | Open-loop in-flight `C`; wall tok/s **and** per-request latency |
 | Memory | GPU VRAM via NVML / `nvidia-smi` (1 Hz fallback), Apple/AMD best-effort, process RSS |
 | Harness floor | Zero-delay mock TTFT, recorded on every run |
-| Quality probe | Separate greedy request; SHA-256 + optional substring; does not rewrite speed-run sampling |
+| Quality probe | Separate greedy request with `thinking=off`; SHA-256 + optional substring on content only; does not rewrite speed-run sampling |
 
-Defaults: `seed=42`, `warmup=2`, `iterations=16`, `concurrency=[1]`, greedy sampling (`T=0`). Warmup is a distinct prefix of the prompt sequence and is **excluded** from percentiles. `--quality-strict` aborts if the greedy probe fails.
+Defaults: `seed=42`, `warmup=2`, `iterations=16`, `concurrency=[1]`, greedy sampling (`T=0`). Warmup is a distinct prefix of the prompt sequence and is **excluded** from percentiles. `--thinking {default,off,low,medium,high,xhigh}` is recorded on the snapshot. `--quality-strict` aborts if the greedy probe fails.
 
 The long version — clocks, token-count sources, thermal throttling, batching, queueing vs compute — is [docs/methodology.md](docs/methodology.md). Read it before you paste a table into a README.
 
