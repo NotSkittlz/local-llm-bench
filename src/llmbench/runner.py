@@ -35,6 +35,7 @@ from llmbench.preflight import (
     context_queueing_note,
     server_n_ctx,
     skipped_summary,
+    slot_prefill_contention_note,
 )
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
@@ -143,6 +144,9 @@ async def run_benchmark(
                 )
                 if queue_note:
                     summary.notes.append(queue_note)
+                contention = slot_prefill_contention_note(cfg, suite=suite, concurrency=conc)
+                if contention:
+                    summary.notes.append(contention)
                 trials.extend(suite_trials)
                 summaries.append(summary)
                 if summary.n_err:

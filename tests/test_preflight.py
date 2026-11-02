@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
 
 import httpx
 import pytest
+from rich.console import Console
 
+import llmbench.cli as cli_mod
 from llmbench.backends.base import CompletionRequest
 from llmbench.backends.mock import MockBackend
 from llmbench.backends.openai_compat import OpenAICompatBackend
+from llmbench.cli import _print_summary
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.http_errors import error_message_from_payload, format_http_error
 from llmbench.preflight import (
@@ -15,8 +19,9 @@ from llmbench.preflight import (
     context_overflow_message,
     context_queueing_note,
     server_n_ctx,
+    slot_prefill_contention_note,
 )
-from llmbench.report import render_markdown
+from llmbench.report import render_html, render_markdown
 from llmbench.runner import run_benchmark
 from llmbench.schema import BackendInfo, SamplingParams
 
@@ -339,3 +344,62 @@ async def test_runner_skips_when_one_prompt_exceeds_slot_ctx() -> None:
     assert result.trials == []
     assert result.summaries[0].n_ok == 0
     assert any("per-slot server context 8192" in w for w in result.warnings)
+
+
+def test_contention_note_only_for_llamacpp_parallel_long_context() -> None:
+    llama = BenchConfig(
+        backend=BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    note = slot_prefill_contention_note(llama, suite="long_context", concurrency=4)
+    assert note is not None
+    assert "share the GPU" in note
+    assert "measurement error" in note
+    assert slot_prefill_contention_note(llama, suite="long_context", concurrency=1) is None
+    assert slot_prefill_contention_note(llama, suite="short_chat", concurrency=4) is None
+    ollama = BenchConfig(
+        backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    assert slot_prefill_contention_note(ollama, suite="long_context", concurrency=4) is None
+
+
+@pytest.mark.asyncio
+async def test_runner_notes_llamacpp_parallel_long_context_contention() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=2,
+        concurrency=[4],
+        suites=["long_context"],
+        long_context_chars=16_000,
+        backend=BackendConfig(
+            type="llamacpp",
+            base_url="http://127.0.0.1:8080",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_PropsBackend())
+    assert any("share the GPU" in n for n in result.summaries[0].notes)
+    html = render_html([result])
+    assert "share the GPU" in html
+    assert "not a measurement error" in html
+    md = render_markdown([result])
+    assert "share the GPU" in md
+
+    buf = StringIO()
+    previous = cli_mod.console
+    cli_mod.console = Console(file=buf, width=140, force_terminal=False, no_color=True)
+    try:
+        _print_summary(result)
+    finally:
+        cli_mod.console = previous
+    assert "share the GPU" in buf.getvalue()
+
+    cfg.concurrency = [1]
+    solo = await run_benchmark(cfg, backend=_PropsBackend())
+    assert not any("share the GPU" in n for s in solo.summaries for n in s.notes)

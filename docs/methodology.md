@@ -280,6 +280,12 @@ Never mix `count_chunks` and `server_usage` across a comparison.
 slot. That is still the latency a user sees. If you want unloaded TTFT, read
 the `concurrency=1` summary.
 
+**llama.cpp parallel long_context.** At `concurrency > 1`, slots share one
+GPU. A request that has started decoding can slow down while another slot
+is still prefilling. A drop in per-request decode tok/s versus `C=1` is
+expected server behavior, not a measurement error. The summary and HTML
+report note this on those rows.
+
 **Client perturbation.** Logging, per-token Python, and `nvidia-smi` in the
 request loop would move the numbers. The hot path timestamps and parses;
 memory sampling is a niced thread; `nvidia-smi` is rate-limited to 1 Hz.

@@ -52,3 +52,5 @@ landed on PR #1 after adversarial review:
 - Ollama effective `context_length` prefers `/api/ps`, then Modelfile
   `num_ctx`, then `OLLAMA_CONTEXT_LENGTH` on loopback, then the 4096
   default. Architecture max is stored as `context_length_max`.
+- Summary/HTML notes that llama.cpp `long_context` at `C>1` can show
+  lower per-request decode because slots share the GPU during prefill.

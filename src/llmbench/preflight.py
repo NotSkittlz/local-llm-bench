@@ -77,6 +77,25 @@ def context_overflow_message(
     )
 
 
+def slot_prefill_contention_note(
+    cfg: BenchConfig,
+    *,
+    suite: str,
+    concurrency: int,
+) -> str | None:
+    """llama.cpp parallel long_context shares the GPU across slots."""
+
+    if cfg.backend.type != "llamacpp":
+        return None
+    if suite != "long_context" or concurrency <= 1:
+        return None
+    return (
+        "long_context concurrency>1 on llama.cpp: per-request decode tok/s can "
+        "drop because slots share the GPU while other slots are still prefilling. "
+        "This is expected server behavior, not a measurement error."
+    )
+
+
 def context_queueing_note(
     cfg: BenchConfig,
     info: BackendInfo,

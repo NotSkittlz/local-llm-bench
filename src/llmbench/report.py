@@ -472,6 +472,11 @@ def _markdown_single(run: RunResult) -> list[str]:
             f"| {s.name} | {s.concurrency} | {s.n_ok} | {_n(s.ttft_ms.p50)} | "
             f"{_n(s.ttft_ms.p95)} | {_n(s.decode_tps.p50)} | {_n(s.e2e_ms.p50)} |"
         )
+    notes = [n for s in run.summaries for n in s.notes]
+    if notes:
+        lines.append("")
+        for note in notes:
+            lines.append(f"- {note}")
     if run.harness.overhead:
         o = run.harness.overhead
         lines += [

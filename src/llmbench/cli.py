@@ -342,6 +342,12 @@ def _print_summary(result: RunResult) -> None:
             f"{s.e2e_ms.p95:.1f} ms" if s.e2e_ms.p95 is not None else "-",
         )
     console.print(table)
+    seen_notes: list[str] = []
+    for s in result.summaries:
+        for note in s.notes:
+            if note not in seen_notes:
+                seen_notes.append(note)
+                _print_dim(note)
     if result.quality and result.quality.enabled:
         flag = "[green]pass[/]" if result.quality.ok else "[red]fail[/]"
         console.print(f"Quality probe: {flag}")
