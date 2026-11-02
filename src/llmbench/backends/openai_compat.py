@@ -151,9 +151,7 @@ class OpenAICompatBackend:
                 "Is the local server running?"
             ) from exc
         except httpx.TimeoutException as exc:
-            raise BackendTimeoutError(
-                f"timeout talking to {self._client.base_url}: {exc}"
-            ) from exc
+            raise BackendTimeoutError(f"timeout talking to {self._client.base_url}: {exc}") from exc
         except httpx.HTTPError as exc:
             error = str(exc)
             error_kind = "http"

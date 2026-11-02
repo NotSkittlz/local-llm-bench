@@ -117,9 +117,7 @@ async def run_benchmark(
                 trials.extend(suite_trials)
                 summaries.append(summary)
                 if summary.n_err:
-                    warnings.append(
-                        f"{suite} concurrency={conc}: {summary.n_err} failed trial(s)"
-                    )
+                    warnings.append(f"{suite} concurrency={conc}: {summary.n_err} failed trial(s)")
     finally:
         memory_summary = sampler.stop() if sampler else None
         memory_samples = sampler.samples if sampler else []
@@ -239,9 +237,7 @@ async def _run_suite(
                 emit(f"  run {done}/{cfg.iterations} (in-flight ≤ {concurrency})")
             return trial
 
-        measured = await asyncio.gather(
-            *[guarded(i, p) for i, p in enumerate(measured_prompts)]
-        )
+        measured = await asyncio.gather(*[guarded(i, p) for i, p in enumerate(measured_prompts)])
         trials.extend(measured)
     phase_end = time.perf_counter_ns()
 

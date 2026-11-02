@@ -29,7 +29,9 @@ class MockFault:
 class MockBackend:
     config_type = "mock"
 
-    def __init__(self, config: BackendConfig | None = None, *, fault: MockFault | None = None) -> None:
+    def __init__(
+        self, config: BackendConfig | None = None, *, fault: MockFault | None = None
+    ) -> None:
         self.config = config or BackendConfig()
         self.fault = fault or MockFault()
         self.calls = 0

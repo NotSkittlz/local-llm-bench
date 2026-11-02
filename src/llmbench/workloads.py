@@ -97,12 +97,20 @@ SHORT_CHAT: tuple[Prompt, ...] = (
     Prompt("chat-04", "short_chat", "What is the difference between heat and temperature?"),
     Prompt("chat-05", "short_chat", "Summarize Kirchhoff's circuit laws."),
     Prompt("chat-06", "short_chat", "Give a short definition of entropy in statistical mechanics."),
-    Prompt("chat-07", "short_chat", "Why does a spinning ice skater speed up when they pull their arms in?"),
+    Prompt(
+        "chat-07",
+        "short_chat",
+        "Why does a spinning ice skater speed up when they pull their arms in?",
+    ),
     Prompt("chat-08", "short_chat", "What does it mean for a system to be in thermal equilibrium?"),
     Prompt("chat-09", "short_chat", "Name two differences between fission and fusion."),
     Prompt("chat-10", "short_chat", "Describe constructive interference in one paragraph."),
     Prompt("chat-11", "short_chat", "What is a local minimum in an optimization landscape?"),
-    Prompt("chat-12", "short_chat", "Translate this to simpler language: 'the Hamiltonian generates time evolution'."),
+    Prompt(
+        "chat-12",
+        "short_chat",
+        "Translate this to simpler language: 'the Hamiltonian generates time evolution'.",
+    ),
 )
 
 CODE: tuple[Prompt, ...] = (

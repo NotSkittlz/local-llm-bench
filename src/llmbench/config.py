@@ -122,9 +122,7 @@ class BenchConfig(BaseModel):
             raise ValueError("at least one suite is required")
         unknown = [s for s in value if s not in BUILTIN_SUITES]
         if unknown:
-            raise ValueError(
-                f"unknown suite(s) {unknown}; built-ins are {list(BUILTIN_SUITES)}"
-            )
+            raise ValueError(f"unknown suite(s) {unknown}; built-ins are {list(BUILTIN_SUITES)}")
         return value
 
     @field_validator("warmup", "iterations")

@@ -109,9 +109,15 @@ def run(
             overrides["quality.enabled"] = quality
         cfg = apply_cli_overrides(cfg, overrides)
 
-        json_path = json_out or (Path(cfg.output.json_path) if cfg.output.json_path else Path("results/run.json"))
-        csv_path = csv_out or (Path(cfg.output.csv_path) if cfg.output.csv_path else json_path.with_suffix(".csv"))
-        html_path = html_out or (Path(cfg.output.html_path) if cfg.output.html_path else json_path.with_suffix(".html"))
+        json_path = json_out or (
+            Path(cfg.output.json_path) if cfg.output.json_path else Path("results/run.json")
+        )
+        csv_path = csv_out or (
+            Path(cfg.output.csv_path) if cfg.output.csv_path else json_path.with_suffix(".csv")
+        )
+        html_path = html_out or (
+            Path(cfg.output.html_path) if cfg.output.html_path else json_path.with_suffix(".html")
+        )
         md_path = md_out or (Path(cfg.output.markdown_path) if cfg.output.markdown_path else None)
 
         console.print(
@@ -277,6 +283,4 @@ def _print_summary(result: RunResult) -> None:
         flag = "[green]pass[/]" if result.quality.ok else "[red]fail[/]"
         console.print(f"Quality probe: {flag}")
     if result.harness.overhead:
-        console.print(
-            f"Harness TTFT floor: {result.harness.overhead.zero_delay_ttft_ms:.3f} ms"
-        )
+        console.print(f"Harness TTFT floor: {result.harness.overhead.zero_delay_ttft_ms:.3f} ms")

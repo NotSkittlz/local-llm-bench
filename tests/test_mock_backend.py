@@ -18,7 +18,9 @@ def _req(**kwargs: object) -> CompletionRequest:
 
 @pytest.mark.asyncio
 async def test_zero_delay_mock_is_fast() -> None:
-    backend = MockBackend(BackendConfig(mock_output_tokens=16, mock_ttft_ns=0, mock_inter_token_ns=0))
+    backend = MockBackend(
+        BackendConfig(mock_output_tokens=16, mock_ttft_ns=0, mock_inter_token_ns=0)
+    )
     result = await backend.complete(_req())
     assert result.error is None
     assert result.output_tokens == 16

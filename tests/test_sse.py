@@ -12,7 +12,7 @@ def test_feed_sse_splits_events() -> None:
 
 def test_feed_sse_holds_partial() -> None:
     buf = bytearray()
-    assert feed_sse(buf, b"data: {\"a\":") == []
+    assert feed_sse(buf, b'data: {"a":') == []
     events = feed_sse(buf, b"1}\n\n")
     assert events == [b'{"a":1}']
 

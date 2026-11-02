@@ -176,9 +176,9 @@ class Trial(BaseModel):
     inter_token_ms: list[float] | None = None
 
     server_timings: ServerTimings | None = None
-    token_source: Literal["server_usage", "server_timings", "count_chunks", "approximate"] | None = (
-        None
-    )
+    token_source: (
+        Literal["server_usage", "server_timings", "count_chunks", "approximate"] | None
+    ) = None
 
 
 class SuiteSummary(BaseModel):

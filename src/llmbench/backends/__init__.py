@@ -15,7 +15,9 @@ def build_backend(cfg: BenchConfig) -> Backend:
     if kind == "mock":
         return MockBackend(cfg.backend)
     if kind in {"openai_compat", "llamacpp", "vllm"}:
-        return OpenAICompatBackend(cfg.backend, flavor=kind, timeout_s=cfg.timeout_s, connect_s=cfg.connect_timeout_s)
+        return OpenAICompatBackend(
+            cfg.backend, flavor=kind, timeout_s=cfg.timeout_s, connect_s=cfg.connect_timeout_s
+        )
     if kind == "ollama":
         return OllamaBackend(cfg.backend, timeout_s=cfg.timeout_s, connect_s=cfg.connect_timeout_s)
     raise ConfigError(f"unknown backend type {kind!r}")

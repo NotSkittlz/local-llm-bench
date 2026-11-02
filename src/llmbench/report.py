@@ -68,7 +68,9 @@ def write_markdown(runs: list[RunResult], path: Path) -> None:
 
 
 def _load_template() -> str:
-    return resources.files("llmbench").joinpath("templates/report.html.j2").read_text(encoding="utf-8")
+    return (
+        resources.files("llmbench").joinpath("templates/report.html.j2").read_text(encoding="utf-8")
+    )
 
 
 def _subtitle(runs: list[RunResult]) -> str:
@@ -168,9 +170,13 @@ def _hardware_section(runs: list[RunResult]) -> str:
 def _quality_section(runs: list[RunResult]) -> str:
     if not any(r.quality and r.quality.enabled for r in runs):
         return ""
-    rows = ["<h2>Quality probe</h2>", "<table>", "<thead><tr>",
-            "<th>Run</th><th>OK</th><th>Contains</th><th>SHA-256</th><th>Output (trim)</th>",
-            "</tr></thead><tbody>"]
+    rows = [
+        "<h2>Quality probe</h2>",
+        "<table>",
+        "<thead><tr>",
+        "<th>Run</th><th>OK</th><th>Contains</th><th>SHA-256</th><th>Output (trim)</th>",
+        "</tr></thead><tbody>",
+    ]
     for run in runs:
         q = run.quality
         if not q or not q.enabled:
@@ -204,7 +210,9 @@ def _charts_section(runs: list[RunResult]) -> str:
         decode = [lookup[k].decode_tps.p50 if k in lookup else None for k in keys]
         e2e = [lookup[k].e2e_ms.p95 if k in lookup else None for k in keys]
         parts.append(
-            grouped_bar_chart(title="TTFT p50", categories=labels, series=[("p50", ttft)], unit="ms")
+            grouped_bar_chart(
+                title="TTFT p50", categories=labels, series=[("p50", ttft)], unit="ms"
+            )
         )
         parts.append(
             grouped_bar_chart(
@@ -215,7 +223,9 @@ def _charts_section(runs: list[RunResult]) -> str:
             )
         )
         parts.append(
-            grouped_bar_chart(title="End-to-end p95", categories=labels, series=[("p95", e2e)], unit="ms")
+            grouped_bar_chart(
+                title="End-to-end p95", categories=labels, series=[("p95", e2e)], unit="ms"
+            )
         )
         concs = sorted({s.concurrency for s in run.summaries})
         if len(concs) > 1:
@@ -239,10 +249,16 @@ def _charts_section(runs: list[RunResult]) -> str:
         for run in runs:
             lookup = {(s.name, s.concurrency): s for s in run.summaries}
             name = run.label or run.model.name
-            series_ttft.append((name, [lookup[k].ttft_ms.p50 if k in lookup else None for k in keys]))
-            series_dec.append((name, [lookup[k].decode_tps.p50 if k in lookup else None for k in keys]))
+            series_ttft.append(
+                (name, [lookup[k].ttft_ms.p50 if k in lookup else None for k in keys])
+            )
+            series_dec.append(
+                (name, [lookup[k].decode_tps.p50 if k in lookup else None for k in keys])
+            )
         parts.append(
-            grouped_bar_chart(title="TTFT p50 by run", categories=labels, series=series_ttft, unit="ms")
+            grouped_bar_chart(
+                title="TTFT p50 by run", categories=labels, series=series_ttft, unit="ms"
+            )
         )
         parts.append(
             grouped_bar_chart(
@@ -270,7 +286,11 @@ def _tables_section(runs: list[RunResult]) -> str:
         "E2E p95",
         "Tok/s wall",
     ]
-    parts.append("".join(f"<th class='num'>{h}</th>" if i > 2 else f"<th>{h}</th>" for i, h in enumerate(headers)))
+    parts.append(
+        "".join(
+            f"<th class='num'>{h}</th>" if i > 2 else f"<th>{h}</th>" for i, h in enumerate(headers)
+        )
+    )
     parts.append("</tr></thead><tbody>")
     for run in runs:
         for s in run.summaries:
@@ -333,7 +353,9 @@ def _delta_table_html(runs: list[RunResult]) -> str:
     parts = ["<table><thead><tr><th>Suite</th><th>Conc</th>"]
     for run in runs[1:]:
         name = html.escape(run.label or run.model.name)
-        parts.append(f"<th class='num'>{name} Δ TTFT p50</th><th class='num'>{name} Δ decode p50</th>")
+        parts.append(
+            f"<th class='num'>{name} Δ TTFT p50</th><th class='num'>{name} Δ decode p50</th>"
+        )
     parts.append("</tr></thead><tbody>")
     bmap = {(s.name, s.concurrency): s for s in base.summaries}
     for key in keys:
@@ -342,7 +364,9 @@ def _delta_table_html(runs: list[RunResult]) -> str:
         for run in runs[1:]:
             omap = {(s.name, s.concurrency): s for s in run.summaries}
             o = omap.get(key)
-            parts.append(f"<td class='num'>{_delta(b.ttft_ms.p50 if b else None, o.ttft_ms.p50 if o else None)}</td>")
+            parts.append(
+                f"<td class='num'>{_delta(b.ttft_ms.p50 if b else None, o.ttft_ms.p50 if o else None)}</td>"
+            )
             parts.append(
                 f"<td class='num'>{_delta(b.decode_tps.p50 if b else None, o.decode_tps.p50 if o else None)}</td>"
             )
@@ -392,8 +416,12 @@ def _markdown_single(run: RunResult) -> list[str]:
 
 def _markdown_compare(runs: list[RunResult]) -> list[str]:
     names = [r.label or r.model.name for r in runs]
-    lines = ["# local-llm-bench comparison", "", "| Suite | Conc | metric | " + " | ".join(names) + " |",
-             "| --- | ---: | --- | " + " | ".join("---:" for _ in runs) + " |"]
+    lines = [
+        "# local-llm-bench comparison",
+        "",
+        "| Suite | Conc | metric | " + " | ".join(names) + " |",
+        "| --- | ---: | --- | " + " | ".join("---:" for _ in runs) + " |",
+    ]
     keys = _aligned_keys(runs)
     metrics = [
         ("TTFT p50 ms", lambda s: s.ttft_ms.p50),
