@@ -19,6 +19,7 @@ from llmbench.backends.base import CompletionRequest, StreamResult, classify_str
 from llmbench.backends.sse import feed_sse, flush_sse
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.http_errors import error_message_from_payload, format_http_error
 from llmbench.metrics import classify_cache_hit
 from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
@@ -156,7 +157,7 @@ class OpenAICompatBackend:
             async with self._client.stream("POST", "/v1/chat/completions", json=payload) as resp:
                 if resp.status_code >= 400:
                     body = await resp.aread()
-                    error = f"HTTP {resp.status_code}: {body[:300]!r}"
+                    error = format_http_error(resp.status_code, body)
                     error_kind = "http"
                 else:
                     async for chunk in resp.aiter_bytes():
@@ -251,7 +252,8 @@ def _parse_openai_event(
     if not isinstance(obj, dict):
         return None, None, None, "SSE JSON was not an object", None, None
     if obj.get("error"):
-        return None, None, None, str(obj["error"])[:300], None, None
+        msg = error_message_from_payload(obj.get("error")) or "server error"
+        return None, None, None, msg, None, None
     usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
     timings = obj.get("timings") if isinstance(obj.get("timings"), dict) else None
     delta_text = None

@@ -285,6 +285,14 @@ hosts; metadata endpoints stay blocked.
 `finish_reason`, or Ollama `done: true` is `ok=false` with
 `error_kind=truncated` and is excluded from percentiles.
 
+**Context vs concurrency.** Before a suite wave, the harness reads llama.cpp
+`/props` (`n_ctx`, `total_slots`) or the applied Ollama `num_ctx`. If
+`concurrency × (prompt tokens + max_tokens)` exceeds that window (typical
+for llama.cpp `--kv-unified` with four 3k-token prompts in an 8192 ctx),
+the wave is skipped and the warning names the numbers. HTTP/SSE error
+bodies (e.g. "Context size has been exceeded.") are copied onto the suite
+summary, not only stored as `error_kind=protocol`.
+
 **Power / clocks.** We do not pin GPU clocks or disable boost. Two runs on
 the same box can differ. Say so in the README you paste.
 

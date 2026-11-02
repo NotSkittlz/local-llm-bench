@@ -29,6 +29,7 @@ from llmbench.metrics import (
     summarize,
 )
 from llmbench.overhead import measure_harness_overhead
+from llmbench.preflight import context_overflow_message, skipped_summary
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
 from llmbench.schema import (
@@ -114,6 +115,14 @@ async def run_benchmark(
             load_suite(suite, cfg)  # fail fast on unknown
             for conc in cfg.concurrency:
                 emit(f"suite {suite}  concurrency={conc}")
+                overflow = context_overflow_message(
+                    cfg, backend_info, suite=suite, concurrency=conc
+                )
+                if overflow:
+                    emit(f"  {overflow}")
+                    warnings.append(overflow)
+                    summaries.append(skipped_summary(suite, conc, overflow))
+                    continue
                 suite_trials, summary = await _run_suite(
                     backend,
                     cfg,
@@ -125,7 +134,11 @@ async def run_benchmark(
                 trials.extend(suite_trials)
                 summaries.append(summary)
                 if summary.n_err:
-                    warnings.append(f"{suite} concurrency={conc}: {summary.n_err} failed trial(s)")
+                    err_msgs = sorted({t.error for t in suite_trials if t.error})
+                    detail = f": {err_msgs[0]}" if err_msgs else ""
+                    warnings.append(
+                        f"{suite} concurrency={conc}: {summary.n_err} failed trial(s){detail}"
+                    )
                 mismatch = sum(
                     1 for t in suite_trials if not t.warmup and FLAG_DECODE_DISAGREE in t.flags
                 )
@@ -353,6 +366,14 @@ async def _run_suite(
             f"{reasoning_only}/{len(ok_trials)} measured trials finished with only "
             "reasoning tokens (no_content_reasoning_only); counted for speed metrics"
         )
+    err_msgs = []
+    for trial in measured:
+        if trial.ok or not trial.error:
+            continue
+        if trial.error not in err_msgs:
+            err_msgs.append(trial.error)
+    for msg in err_msgs[:4]:
+        notes.append(msg)
     summary = SuiteSummary(
         name=suite,
         concurrency=concurrency,

@@ -16,6 +16,7 @@ import httpx
 from llmbench.backends.base import CompletionRequest, StreamResult, classify_stream_end
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.http_errors import format_http_error
 from llmbench.metrics import classify_cache_hit
 from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
@@ -113,7 +114,7 @@ class OllamaBackend:
             async with self._client.stream("POST", "/api/chat", json=payload) as resp:
                 if resp.status_code >= 400:
                     body = await resp.aread()
-                    error = f"HTTP {resp.status_code}: {body[:300]!r}"
+                    error = format_http_error(resp.status_code, body)
                     error_kind = "http"
                 else:
                     async for chunk in resp.aiter_bytes():

@@ -30,3 +30,6 @@ landed on PR #1 after adversarial review:
   128 tokens if thinking ate the 16-token budget.
 - llama.cpp template-prefix `cache_n` (~42) is a cached fraction, not a
   prompt cache hit.
+- Preflight skips a suite×concurrency wave when C×(prompt+max_tokens)
+  exceeds llama.cpp `/props` n_ctx or Ollama num_ctx; server error text is
+  copied into the summary.
