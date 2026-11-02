@@ -90,9 +90,8 @@ def trial_prefill_tps(
     ttft_ms: float | None,
     server: ServerTimings | None,
 ) -> float | None:
-    if server is not None and server.prompt_tokens and server.prompt_ms:
-        if server.prompt_ms > 0:
-            return server.prompt_tokens / (server.prompt_ms / 1000.0)
+    if server is not None and server.prompt_tokens and server.prompt_ms and server.prompt_ms > 0:
+        return server.prompt_tokens / (server.prompt_ms / 1000.0)
     if prompt_tokens is None or ttft_ms is None or ttft_ms <= 0:
         return None
     return prompt_tokens / (ttft_ms / 1000.0)

@@ -101,12 +101,6 @@ def check_trial_clocks(
                 f"first_token_ns={first_token_ns} > end_ns={end_ns}",
             )
         )
-    wall_span = None
-    try:
-        # Cheap sanity: if the process slept, perf counter should still move.
-        _ = wall_span
-    except Exception:  # pragma: no cover - placeholder kept for symmetry
-        pass
     return anomalies
 
 
