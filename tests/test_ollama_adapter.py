@@ -166,7 +166,63 @@ async def test_ollama_info_parses_context_length(monkeypatch) -> None:
     info = await backend.info()
     await backend.aclose()
     assert info.extra.get("num_ctx") == 8192
-    assert info.extra.get("context_length") == 32768
+    assert info.extra.get("context_length_max") == 32768
+    assert "context_length" not in info.extra
+
+
+@pytest.mark.asyncio
+async def test_ollama_info_prefers_ps_runtime_context(monkeypatch) -> None:
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
+    monkeypatch.delenv("OLLAMA_CONTEXT_LENGTH", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/show"):
+            return httpx.Response(
+                200,
+                json={"model_info": {"qwen2.context_length": 262144}},
+            )
+        if request.url.path.endswith("/api/ps"):
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"name": "qwen:latest", "model": "qwen", "context_length": 32768},
+                    ]
+                },
+            )
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.0-test"})
+        return httpx.Response(404)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="qwen"),
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.extra.get("ps_context_length") == 32768
+    assert info.extra.get("context_length_max") == 262144
+
+
+@pytest.mark.asyncio
+async def test_ollama_info_reads_context_length_env_on_loopback(monkeypatch) -> None:
+    monkeypatch.setenv("OLLAMA_CONTEXT_LENGTH", "32768")
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/show"):
+            return httpx.Response(200, json={"details": {"family": "llama"}})
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.0-test"})
+        return httpx.Response(404)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="llama"),
+        transport=httpx.MockTransport(handler),
+    )
+    info = await backend.info()
+    await backend.aclose()
+    assert info.extra.get("ollama_context_length_env") == 32768
 
 
 @pytest.mark.asyncio

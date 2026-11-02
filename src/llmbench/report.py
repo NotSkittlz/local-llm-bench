@@ -162,7 +162,7 @@ def _hardware_section(runs: list[RunResult]) -> str:
             ),
             (
                 "Context",
-                _declared(run.model.context_length, run.model.context_length_source),
+                _context_label(run.model),
             ),
             (
                 "Sampling",
@@ -458,6 +458,7 @@ def _markdown_single(run: RunResult) -> list[str]:
         f"# local-llm-bench report — {run.model.name}",
         "",
         f"- Backend: `{run.backend.type}` {run.backend.version or ''}".rstrip(),
+        f"- Context: {_context_label(run.model)}",
         f"- Sampling: T={run.sampling.temperature} top_p={run.sampling.top_p} "
         f"max_tokens={_max_tokens_label(run.sampling)} seed={run.sampling.seed}",
         f"- Hardware: {run.hardware.cpu_name or 'CPU?'} · "
@@ -524,6 +525,27 @@ def _declared(value: object, source: str | None) -> str:
     if source == "user_declared":
         return f"{value} (user-declared, not applied)"
     return str(value)
+
+
+def _context_label(model: object) -> str:
+    value = getattr(model, "context_length", None)
+    source = getattr(model, "context_length_source", None)
+    maximum = getattr(model, "context_length_max", None)
+    bits: list[str] = []
+    if value is not None:
+        labels = {
+            "applied_num_ctx": f"{value} (sent as num_ctx)",
+            "user_declared": f"{value} (user-declared, not applied)",
+            "ollama_ps": f"{value} (/api/ps)",
+            "ollama_num_ctx": f"{value} (Modelfile num_ctx)",
+            "ollama_env": f"{value} (OLLAMA_CONTEXT_LENGTH)",
+            "ollama_default": f"{value} (Ollama default)",
+            "server": f"{value} (server)",
+        }
+        bits.append(labels.get(source, str(value) if source is None else f"{value} ({source})"))
+    if maximum is not None:
+        bits.append(f"model max {maximum}")
+    return "; ".join(bits) if bits else "—"
 
 
 def _fmt_overhead(ms: float) -> str:

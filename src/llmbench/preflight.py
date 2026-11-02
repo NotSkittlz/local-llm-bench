@@ -9,14 +9,27 @@ from llmbench.metrics import approx_tokens_from_chars, summarize
 from llmbench.schema import BackendInfo, SuiteSummary
 from llmbench.workloads import load_suite
 
+# docs.ollama.com/faq: default context window is 4096 unless overridden.
+OLLAMA_DEFAULT_NUM_CTX = 4096
+
+_CTX_LABELS = {
+    "applied_num_ctx": "Ollama options.num_ctx",
+    "ollama_ps": "Ollama /api/ps context_length",
+    "ollama_num_ctx": "Ollama /api/show num_ctx",
+    "ollama_env": "OLLAMA_CONTEXT_LENGTH",
+    "ollama_default": "Ollama default num_ctx",
+    "server": "llama.cpp /props n_ctx (per slot)",
+}
+
 
 def server_n_ctx(info: BackendInfo, cfg: BenchConfig) -> tuple[int | None, int | None, str]:
-    """Return (n_ctx_per_slot, parallel_slots, source label).
+    """Return (n_ctx_per_slot, parallel_slots, source key).
 
     llama.cpp ``default_generation_settings.n_ctx`` is the **per-slot** window
     (``n_ctx_slot``), not a shared pool to multiply by concurrency.
-    Ollama ``num_ctx`` is likewise per request; ``OLLAMA_NUM_PARALLEL`` is the
-    slot count when the server exposes it.
+    Ollama uses the **runtime** window (``/api/ps``, Modelfile ``num_ctx``,
+    ``OLLAMA_CONTEXT_LENGTH``, or the 4096 default), never architecture max.
+    ``OLLAMA_NUM_PARALLEL`` is the slot count when the server exposes it.
     """
 
     extra = info.extra or {}
@@ -25,7 +38,7 @@ def server_n_ctx(info: BackendInfo, cfg: BenchConfig) -> tuple[int | None, int |
         slots = _as_int(props.get("total_slots")) if isinstance(props, dict) else None
         dgs = props.get("default_generation_settings") if isinstance(props, dict) else None
         n_ctx = _as_int(dgs.get("n_ctx")) if isinstance(dgs, dict) else None
-        return n_ctx, slots, "llama.cpp /props n_ctx (per slot)"
+        return n_ctx, slots, "server"
     if cfg.backend.type == "ollama":
         n_ctx, ctx_source = _ollama_n_ctx(info, cfg)
         slots = _as_int(extra.get("num_parallel")) or _as_int(extra.get("parallel"))
@@ -60,7 +73,7 @@ def context_overflow_message(
     return (
         f"skipping {suite} concurrency={concurrency}: "
         f"~{prompt_tokens} prompt + {max_tokens} max_tokens = {needed} tokens "
-        f"exceeds per-slot server context {n_ctx} ({source}{slot_bit})"
+        f"exceeds per-slot server context {n_ctx} ({_ctx_label(source)}{slot_bit})"
     )
 
 
@@ -78,7 +91,7 @@ def context_queueing_note(
         return None
     return (
         f"{suite} concurrency={concurrency} exceeds parallel slots={slots} "
-        f"({source}); extra in-flight requests will queue"
+        f"({_ctx_label(source)}); extra in-flight requests will queue"
     )
 
 
@@ -99,16 +112,25 @@ def skipped_summary(suite: str, concurrency: int, message: str) -> SuiteSummary:
 
 
 def _ollama_n_ctx(info: BackendInfo, cfg: BenchConfig) -> tuple[int | None, str]:
+    """Effective runtime window, never the architecture max from model_info."""
+
     if cfg.model.context_length is not None:
-        return cfg.model.context_length, "Ollama options.num_ctx"
+        return cfg.model.context_length, "applied_num_ctx"
     extra = info.extra or {}
+    ps_ctx = _as_int(extra.get("ps_context_length"))
+    if ps_ctx is not None and ps_ctx > 0:
+        return ps_ctx, "ollama_ps"
     num_ctx = _as_int(extra.get("num_ctx"))
     if num_ctx is not None and num_ctx > 0:
-        return num_ctx, "Ollama /api/show num_ctx"
-    ctx = _as_int(extra.get("context_length"))
-    if ctx is not None and ctx > 0:
-        return ctx, "Ollama /api/show context_length"
-    return None, "Ollama (num_ctx unknown)"
+        return num_ctx, "ollama_num_ctx"
+    env_ctx = _as_int(extra.get("ollama_context_length_env"))
+    if env_ctx is not None and env_ctx > 0:
+        return env_ctx, "ollama_env"
+    return OLLAMA_DEFAULT_NUM_CTX, "ollama_default"
+
+
+def _ctx_label(source: str) -> str:
+    return _CTX_LABELS.get(source, source)
 
 
 def _as_int(value: Any) -> int | None:

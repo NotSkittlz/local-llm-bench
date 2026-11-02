@@ -49,3 +49,6 @@ landed on PR #1 after adversarial review:
 - README notes that speculative decoding makes decode tok/s prompt-dependent.
 - CLI help tests collapse whitespace so 80-column Rich wrapping cannot hide
   flags on CI.
+- Ollama effective `context_length` prefers `/api/ps`, then Modelfile
+  `num_ctx`, then `OLLAMA_CONTEXT_LENGTH` on loopback, then the 4096
+  default. Architecture max is stored as `context_length_max`.

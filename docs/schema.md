@@ -19,7 +19,7 @@ Top-level fields (abridged):
 | `synthetic` | `true` iff the mock backend produced the timings |
 | `config` | seed, warmup, iterations, concurrency, suites |
 | `sampling` | requested params plus `applied` / `dropped` and `max_tokens_min`/`max` |
-| `model` | name, quantization, context_length, plus `*_source` (`user_declared`, `applied_num_ctx`, or `server`) |
+| `model` | name, quantization, `context_length` (effective), `context_length_max` (architecture), plus `context_length_source` (`user_declared`, `applied_num_ctx`, `server`, `ollama_ps`, `ollama_num_ctx`, `ollama_env`, `ollama_default`) |
 | `backend` | type, base_url, version |
 | `hardware` | CPU, RAM, GPUs, OS |
 | `harness.overhead` | zero-delay mock TTFT floor |

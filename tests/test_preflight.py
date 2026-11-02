@@ -10,7 +10,12 @@ from llmbench.backends.mock import MockBackend
 from llmbench.backends.openai_compat import OpenAICompatBackend
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.http_errors import error_message_from_payload, format_http_error
-from llmbench.preflight import context_overflow_message, context_queueing_note
+from llmbench.preflight import (
+    OLLAMA_DEFAULT_NUM_CTX,
+    context_overflow_message,
+    context_queueing_note,
+    server_n_ctx,
+)
 from llmbench.report import render_markdown
 from llmbench.runner import run_benchmark
 from llmbench.schema import BackendInfo, SamplingParams
@@ -169,7 +174,7 @@ async def test_runner_runs_parallel_long_context_within_slot() -> None:
 async def test_runner_fills_ollama_context_length_from_show() -> None:
     class _ShowBackend(MockBackend):
         async def info(self) -> BackendInfo:
-            return BackendInfo(type="ollama", extra={"num_ctx": 8192, "context_length": 32768})
+            return BackendInfo(type="ollama", extra={"num_ctx": 8192, "context_length_max": 32768})
 
     cfg = BenchConfig(
         warmup=0,
@@ -189,7 +194,101 @@ async def test_runner_fills_ollama_context_length_from_show() -> None:
     )
     result = await run_benchmark(cfg, backend=_ShowBackend())
     assert result.model.context_length == 8192
-    assert result.model.context_length_source == "server"
+    assert result.model.context_length_source == "ollama_num_ctx"
+    assert result.model.context_length_max == 32768
+
+
+@pytest.mark.asyncio
+async def test_runner_records_ollama_ps_runtime_and_model_max() -> None:
+    class _PsBackend(MockBackend):
+        async def info(self) -> BackendInfo:
+            return BackendInfo(
+                type="ollama",
+                extra={"ps_context_length": 32768, "context_length_max": 262144},
+            )
+
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="ollama",
+            base_url="http://127.0.0.1:11434",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_PsBackend())
+    assert result.model.context_length == 32768
+    assert result.model.context_length_source == "ollama_ps"
+    assert result.model.context_length_max == 262144
+    md = render_markdown([result])
+    assert "/api/ps" in md
+    assert "model max 262144" in md
+    assert any("context_length_max=262144" in n for n in result.notes)
+
+
+def test_ollama_uses_ps_runtime_not_architecture_max() -> None:
+    cfg = BenchConfig(
+        suites=["long_context"],
+        concurrency=[1],
+        long_context_chars=16_000,
+        sampling=SamplingParams(max_tokens=32),
+        backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    info = BackendInfo(
+        type="ollama",
+        extra={"ps_context_length": 32768, "context_length_max": 262144},
+    )
+    n_ctx, _slots, source = server_n_ctx(info, cfg)
+    assert n_ctx == 32768
+    assert source == "ollama_ps"
+    assert context_overflow_message(cfg, info, suite="long_context", concurrency=1) is None
+
+
+def test_ollama_preflight_skips_against_runtime_not_model_max() -> None:
+    cfg = BenchConfig(
+        suites=["long_context"],
+        concurrency=[1],
+        long_context_chars=200_000,
+        sampling=SamplingParams(max_tokens=32),
+        backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    info = BackendInfo(
+        type="ollama",
+        extra={"ps_context_length": 32768, "context_length_max": 262144},
+    )
+    msg = context_overflow_message(cfg, info, suite="long_context", concurrency=1)
+    assert msg is not None
+    assert "32768" in msg
+    assert "262144" not in msg
+    assert "api/ps" in msg
+
+
+def test_ollama_falls_back_to_env_then_default() -> None:
+    cfg = BenchConfig(
+        suites=["short_chat"],
+        concurrency=[1],
+        backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    env_info = BackendInfo(
+        type="ollama", extra={"ollama_context_length_env": 32768, "context_length_max": 262144}
+    )
+    n_ctx, _slots, source = server_n_ctx(env_info, cfg)
+    assert n_ctx == 32768
+    assert source == "ollama_env"
+    empty = BackendInfo(type="ollama", extra={"context_length_max": 262144})
+    n_ctx, _slots, source = server_n_ctx(empty, cfg)
+    assert n_ctx == OLLAMA_DEFAULT_NUM_CTX
+    assert source == "ollama_default"
 
 
 @pytest.mark.asyncio

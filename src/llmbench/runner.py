@@ -216,11 +216,21 @@ async def run_benchmark(
     else:
         ctx_len, ctx_source = _context_length_from_server(backend_info, cfg)
 
+    extra = backend_info.extra or {}
+    raw_max = extra.get("context_length_max")
+    ctx_max = raw_max if type(raw_max) is int else None
+    if ctx_max is not None and ctx_len is not None and ctx_max != ctx_len:
+        notes.append(
+            f"effective context_length={ctx_len} ({ctx_source}); "
+            f"model.context_length_max={ctx_max} (architecture)"
+        )
+
     model = ModelInfo(
         name=cfg.model.name or cfg.backend.model,
         quantization=cfg.model.quantization,
         quantization_source=q_source,  # type: ignore[arg-type]
         context_length=ctx_len,
+        context_length_max=ctx_max,
         context_length_source=ctx_source,  # type: ignore[arg-type]
         family=cfg.model.family,
     )
@@ -555,9 +565,9 @@ def _warn_thinking_budget(cfg: BenchConfig, info: BackendInfo, warnings: list[st
 def _context_length_from_server(
     info: BackendInfo, cfg: BenchConfig
 ) -> tuple[int | None, str | None]:
-    n_ctx, _slots, _source = server_n_ctx(info, cfg)
+    n_ctx, _slots, source = server_n_ctx(info, cfg)
     if n_ctx is not None and n_ctx > 0:
-        return n_ctx, "server"
+        return n_ctx, source or "server"
     return None, None
 
 

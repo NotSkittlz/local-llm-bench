@@ -59,7 +59,19 @@ class ModelInfo(BaseModel):
     quantization: str | None = None
     quantization_source: Literal["user_declared"] | None = None
     context_length: int | None = None
-    context_length_source: Literal["user_declared", "applied_num_ctx", "server"] | None = None
+    context_length_max: int | None = None
+    context_length_source: (
+        Literal[
+            "user_declared",
+            "applied_num_ctx",
+            "server",
+            "ollama_ps",
+            "ollama_num_ctx",
+            "ollama_env",
+            "ollama_default",
+        ]
+        | None
+    ) = None
     family: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 

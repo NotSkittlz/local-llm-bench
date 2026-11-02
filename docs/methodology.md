@@ -249,8 +249,10 @@ Recorded on every run: requested sampling, `sampling.applied` (what went
 on the wire, including vLLM `repetition_penalty` and Ollama `num_ctx`),
 `sampling.dropped`, per-trial `max_tokens` and the min–max range,
 quantization / context_length with a `*_source` of `user_declared`,
-`applied_num_ctx`, or `server` (llama.cpp `/props` n_ctx, Ollama
-`/api/show` num_ctx / context_length), backend type/version, model id.
+`applied_num_ctx`, `server` (llama.cpp `/props` n_ctx), or Ollama runtime
+(`ollama_ps` from `/api/ps`, Modelfile `num_ctx`, `OLLAMA_CONTEXT_LENGTH`,
+or Ollama's 4096 default). Architecture max is `context_length_max` and is
+not used for overflow checks. Backend type/version, model id.
 
 Two runs are comparable only if those fields match. `llmbench compare`
 aligns by suite name and concurrency; it will not pretend mismatched
@@ -295,12 +297,16 @@ hosts; metadata endpoints stay blocked.
 `error_kind=truncated` and is excluded from percentiles.
 
 **Context vs concurrency.** Before a suite wave, the harness reads llama.cpp
-`/props` (`n_ctx` **per slot**, `total_slots`) or Ollama `num_ctx` (per
-request). A wave is skipped only when **one** prompt + `max_tokens` cannot
-fit in that per-slot window. Concurrency above `total_slots` /
-`OLLAMA_NUM_PARALLEL` is noted as queueing, not skipped. HTTP/SSE error
-bodies (e.g. "Context size has been exceeded.") are copied onto the suite
-summary, not only stored as `error_kind=protocol`.
+`/props` (`n_ctx` **per slot**, `total_slots`) or Ollama's **runtime**
+window (`/api/ps` `context_length`, else Modelfile `num_ctx`, else
+`OLLAMA_CONTEXT_LENGTH` on a loopback server, else Ollama's 4096 default).
+`/api/show` `model_info.*.context_length` is the architecture maximum
+(`context_length_max`), not the served window. A wave is skipped only when
+**one** prompt + `max_tokens` cannot fit in that per-slot window.
+Concurrency above `total_slots` / `OLLAMA_NUM_PARALLEL` is noted as
+queueing, not skipped. HTTP/SSE error bodies (e.g. "Context size has been
+exceeded.") are copied onto the suite summary, not only stored as
+`error_kind=protocol`.
 
 **Power / clocks.** We do not pin GPU clocks or disable boost. Two runs on
 the same box can differ. Say so in the README you paste.

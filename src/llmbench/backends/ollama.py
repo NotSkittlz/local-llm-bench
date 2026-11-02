@@ -7,10 +7,12 @@ first generated token of any kind (``message.thinking`` or ``message.content``).
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -69,13 +71,25 @@ class OllamaBackend:
                 caps = body.get("capabilities")
                 if isinstance(caps, list):
                     extra["capabilities"] = [str(c) for c in caps]
-                num_ctx, context_length = _ollama_context_from_show(body)
+                num_ctx, context_max = _ollama_context_from_show(body)
                 if num_ctx is not None:
                     extra["num_ctx"] = num_ctx
-                if context_length is not None:
-                    extra["context_length"] = context_length
+                if context_max is not None:
+                    extra["context_length_max"] = context_max
         except httpx.HTTPError:
             pass
+        try:
+            ps = await self._client.get("/api/ps")
+            if ps.status_code == 200:
+                ps_ctx = _ps_context_for_model(ps.json(), self.config.model)
+                if ps_ctx is not None:
+                    extra["ps_context_length"] = ps_ctx
+        except httpx.HTTPError:
+            pass
+        if _is_loopback_base(str(self._client.base_url)):
+            env_ctx = _as_int(os.environ.get("OLLAMA_CONTEXT_LENGTH"))
+            if env_ctx is not None and env_ctx > 0:
+                extra["ollama_context_length_env"] = env_ctx
         raw_parallel = os.environ.get("OLLAMA_NUM_PARALLEL")
         parsed_parallel = _as_int(raw_parallel) if raw_parallel else None
         if parsed_parallel is not None and parsed_parallel > 0:
@@ -271,7 +285,7 @@ class OllamaBackend:
 
 
 def _ollama_context_from_show(body: dict[str, Any]) -> tuple[int | None, int | None]:
-    """Return (parameters num_ctx, model_info context_length)."""
+    """Return (parameters num_ctx, architecture context_length max)."""
 
     num_ctx = None
     params = body.get("parameters")
@@ -294,6 +308,57 @@ def _ollama_context_from_show(body: dict[str, Any]) -> tuple[int | None, int | N
                     context_length = parsed
                     break
     return num_ctx, context_length
+
+
+def _ps_context_for_model(body: Any, wanted: str) -> int | None:
+    if not isinstance(body, dict):
+        return None
+    models = body.get("models")
+    if not isinstance(models, list):
+        return None
+    for item in models:
+        if not isinstance(item, dict):
+            continue
+        names = [str(item.get("name") or ""), str(item.get("model") or "")]
+        if not any(_ollama_name_matches(n, wanted) for n in names if n):
+            continue
+        details = item.get("details") if isinstance(item.get("details"), dict) else {}
+        for candidate in (
+            item.get("context_length"),
+            item.get("context"),
+            details.get("context_length") if isinstance(details, dict) else None,
+        ):
+            parsed = _as_int(candidate)
+            if parsed is not None and parsed > 0:
+                return parsed
+    return None
+
+
+def _ollama_name_matches(loaded: str, wanted: str) -> bool:
+    def norm(name: str) -> str:
+        text = name.strip().lower()
+        if text.endswith(":latest"):
+            text = text[: -len(":latest")]
+        return text
+
+    a, b = norm(loaded), norm(wanted)
+    return a == b or a.startswith(f"{b}:") or b.startswith(f"{a}:")
+
+
+def _is_loopback_base(url: str) -> bool:
+    host = urlparse(url).hostname
+    if not host:
+        return False
+    lowered = host.lower().rstrip(".")
+    if lowered in {"localhost", "localhost.localdomain"}:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return bool(ip.is_loopback or ip.is_unspecified)
 
 
 def _as_int(value: Any) -> int | None:
