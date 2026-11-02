@@ -1,0 +1,33 @@
+# Example config. All endpoints must be local (loopback or LAN).
+seed: 42
+warmup: 2
+iterations: 8
+concurrency: [1, 2]
+timeout_s: 120
+suites:
+  - short_chat
+  - code
+backend:
+  type: mock          # mock | ollama | llamacpp | vllm | openai_compat
+  model: mock-7b
+  # base_url: http://127.0.0.1:11434
+model:
+  quantization: Q4_K_M
+  context_length: 8192
+sampling:
+  temperature: 0.0    # recorded exactly; the harness does not rewrite this
+  top_p: 1.0
+  max_tokens: 128
+quality:
+  enabled: true
+  prompt: "The capital of France is"
+  expected_contains: Paris
+memory:
+  enabled: true
+  sample_interval_ms: 250
+output:
+  label: example-mock
+  json_path: results/example.json
+  csv_path: results/example.csv
+  html_path: results/example.html
+  markdown_path: results/example.md

@@ -63,6 +63,9 @@ Issues = "https://github.com/NotSkittlz/local-llm-bench/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/llmbench"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/llmbench/templates" = "llmbench/templates"
+
 [tool.hatch.build.targets.sdist]
 include = [
   "/src",
@@ -106,6 +109,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B018"]
+"src/llmbench/cli.py" = ["B008"]
 
 [tool.ruff.format]
 quote-style = "double"
