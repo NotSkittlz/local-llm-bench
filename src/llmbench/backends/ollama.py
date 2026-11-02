@@ -1,8 +1,8 @@
 """Ollama HTTP adapter (``/api/chat`` streaming NDJSON).
 
 Ollama reports ``prompt_eval_duration`` / ``eval_duration`` in nanoseconds on
-the final object. We record those as ``ServerTimings`` and still measure
-client-side TTFT from the first non-empty ``message.content`` delta.
+the final object. We record those as ``ServerTimings``. Client TTFT is the
+first generated token of any kind (``message.thinking`` or ``message.content``).
 """
 
 from __future__ import annotations
@@ -84,9 +84,10 @@ class OllamaBackend:
         start_ns = time.perf_counter_ns()
         first_byte_ns: int | None = None
         first_token_ns: int | None = None
+        first_content_ns: int | None = None
         last_token_ns: int | None = None
         prev_token_ns: int | None = None
-        n_tokens = 0
+        n_content = 0
         n_reasoning = 0
         n_chars = 0
         text_parts: list[str] = []
@@ -96,6 +97,7 @@ class OllamaBackend:
         error: str | None = None
         error_kind: str | None = None
         saw_done = False
+        finish_reason: str | None = None
 
         try:
             async with self._client.stream("POST", "/api/chat", json=payload) as resp:
@@ -131,22 +133,31 @@ class OllamaBackend:
                             msg = obj.get("message") or {}
                             content = msg.get("content") if isinstance(msg, dict) else None
                             thinking = msg.get("thinking") if isinstance(msg, dict) else None
+                            generated = False
                             if isinstance(thinking, str) and thinking:
                                 n_reasoning += 1
+                                generated = True
                             if isinstance(content, str) and content:
-                                n_tokens += 1
+                                n_content += 1
                                 n_chars += len(content)
+                                if first_content_ns is None:
+                                    first_content_ns = now
+                                generated = True
+                                if request.collect_text:
+                                    text_parts.append(content)
+                            if generated:
                                 if first_token_ns is None:
                                     first_token_ns = now
                                 last_token_ns = now
                                 if request.record_inter_token and prev_token_ns is not None:
                                     inter.append(now - prev_token_ns)
                                 prev_token_ns = now
-                                if request.collect_text:
-                                    text_parts.append(content)
                             if obj.get("done"):
                                 saw_done = True
                                 final = obj
+                                done_reason = obj.get("done_reason")
+                                if isinstance(done_reason, str) and done_reason:
+                                    finish_reason = done_reason
                     tail = bytes(buf).strip()
                     if tail:
                         try:
@@ -157,6 +168,9 @@ class OllamaBackend:
                             if isinstance(obj, dict) and obj.get("done"):
                                 saw_done = True
                                 final = obj
+                                done_reason = obj.get("done_reason")
+                                if isinstance(done_reason, str) and done_reason:
+                                    finish_reason = done_reason
         except httpx.ConnectError as exc:
             raise BackendConnectionError(
                 f"could not connect to Ollama at {self._client.base_url} ({exc}). "
@@ -177,8 +191,9 @@ class OllamaBackend:
             error_kind = "interrupted"
 
         server = None
+        generated = n_content + n_reasoning
         prompt_tokens = None
-        completion_tokens = n_tokens or None
+        completion_tokens = generated or None
         token_source = "count_chunks"
         if final:
             total_prompt = _as_int(final.get("prompt_eval_count"))
@@ -213,6 +228,7 @@ class OllamaBackend:
             end_ns=end_ns,
             first_byte_ns=first_byte_ns,
             first_token_ns=first_token_ns,
+            first_content_ns=first_content_ns,
             last_token_ns=last_token_ns,
             output_tokens=completion_tokens or 0,
             prompt_tokens=prompt_tokens,
@@ -223,6 +239,8 @@ class OllamaBackend:
             server_timings=server,
             token_source=token_source,
             reasoning_tokens=n_reasoning,
+            content_tokens=n_content,
+            finish_reason=finish_reason,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 

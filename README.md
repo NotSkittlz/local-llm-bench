@@ -57,8 +57,8 @@ JSON schema version **1.0.0** — see [docs/schema.md](docs/schema.md).
 
 | Metric | Definition (short) |
 | --- | --- |
-| TTFT | Client time to first *content* token (`perf_counter_ns`) |
-| Decode tok/s | `(output_tokens − 1) / (last − first token)` |
+| TTFT | Client time to first generated token of any kind (`perf_counter_ns`); `ttft_content_ms` is time to first *content* token |
+| Decode tok/s | Server `eval_count/eval_duration` or `predicted_n/predicted_ms` when present; else `(output_tokens − 1) / (last − first)` over the full generated span |
 | Prefill tok/s | Uncached prompt tokens / uncached prompt ms (null if unknown). Proxy `prompt_tokens / TTFT` is stored separately and never mixed in |
 | E2E p50 / p95 | End-to-end latency over successful measured trials |
 | Concurrency | Open-loop in-flight `C`; wall tok/s **and** per-request latency |

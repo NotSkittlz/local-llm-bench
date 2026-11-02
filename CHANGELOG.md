@@ -20,3 +20,6 @@ landed on PR #1 after adversarial review:
   `metadata.google.internal`) are refused.
 - vLLM `usage.prompt_tokens_details.cached_tokens` drives uncached prefill;
   a cached count of 0 is not treated as missing.
+- Reasoning-model decode: timestamp the first token of any kind, keep
+  TTFT-to-content separately, and prefer server `eval_count/eval_duration`
+  or `predicted_n/predicted_ms`. Warn when client vs server disagree by >25%.

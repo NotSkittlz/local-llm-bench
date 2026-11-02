@@ -158,6 +158,7 @@ class ServerTimings(BaseModel):
     load_ms: float | None = None
     total_ms: float | None = None
     cache_hit: bool | None = None
+    cached_prompt_fraction: float | None = None
 
 
 class Trial(BaseModel):
@@ -182,13 +183,18 @@ class Trial(BaseModel):
     start_ns: int
     first_byte_ns: int | None = None
     first_token_ns: int | None = None
+    first_content_ns: int | None = None
     last_token_ns: int | None = None
     end_ns: int
 
     ttft_ms: float | None = None
+    ttft_content_ms: float | None = None
     e2e_ms: float | None = None
     decode_ms: float | None = None
     decode_tps: float | None = None
+    decode_tps_client: float | None = None
+    decode_tps_server: float | None = None
+    decode_source: Literal["server", "client"] | None = None
     prefill_tps: float | None = None
     prefill_tps_proxy: float | None = None
     prefill_source: Literal["server_uncached", "proxy_ttft"] | None = None
@@ -199,7 +205,10 @@ class Trial(BaseModel):
         Literal["server_usage", "server_timings", "count_chunks", "approximate"] | None
     ) = None
     reasoning_tokens: int | None = None
+    content_tokens: int | None = None
     max_tokens: int | None = None
+    finish_reason: str | None = None
+    flags: list[str] = Field(default_factory=list)
 
 
 class SuiteSummary(BaseModel):

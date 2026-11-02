@@ -11,8 +11,8 @@ from llmbench.backends.base import CompletionRequest
 from llmbench.backends.ollama import OllamaBackend
 from llmbench.backends.openai_compat import OpenAICompatBackend
 from llmbench.config import BackendConfig
-from llmbench.metrics import trial_prefill_tps
-from llmbench.schema import SamplingParams
+from llmbench.metrics import fill_trial_derived, trial_prefill_tps
+from llmbench.schema import SamplingParams, Trial
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -89,3 +89,84 @@ async def test_ollama_fixture_stream() -> None:
     assert result.server_timings is not None
     assert result.server_timings.uncached_prompt_tokens == 8
     assert trial_prefill_tps(result.server_timings) == 400.0
+
+
+def _as_trial(result, *, suite: str = "short_chat") -> Trial:
+    trial = Trial(
+        trial_id="t",
+        suite=suite,
+        prompt_id="p",
+        concurrency=1,
+        ok=result.error is None,
+        prompt_chars=10,
+        prompt_tokens=result.prompt_tokens,
+        output_tokens=result.output_tokens,
+        output_chars=result.output_chars,
+        start_ns=result.start_ns,
+        first_byte_ns=result.first_byte_ns,
+        first_token_ns=result.first_token_ns,
+        first_content_ns=result.first_content_ns,
+        last_token_ns=result.last_token_ns,
+        end_ns=result.end_ns,
+        server_timings=result.server_timings,
+        token_source=result.token_source,  # type: ignore[arg-type]
+        reasoning_tokens=result.reasoning_tokens,
+        content_tokens=result.content_tokens,
+        finish_reason=result.finish_reason,
+    )
+    return fill_trial_derived(trial)
+
+
+@pytest.mark.asyncio
+async def test_ollama_thinking_fixture_uses_server_decode() -> None:
+    body = (FIXTURES / "ollama_thinking.ndjson").read_bytes()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="qwen3.8:27b"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+    assert result.text == "Hello"
+    assert result.reasoning_tokens == 3
+    assert result.content_tokens == 1
+    assert result.first_token_ns is not None
+    assert result.first_content_ns is not None
+    assert result.finish_reason == "stop"
+    assert result.output_tokens == 100
+    trial = _as_trial(result)
+    assert trial.decode_source == "server"
+    assert trial.decode_tps is not None
+    assert abs(trial.decode_tps - (100 / 1.379)) < 1e-6
+
+
+@pytest.mark.asyncio
+async def test_llamacpp_reasoning_fixture_uses_server_decode() -> None:
+    body = (FIXTURES / "llamacpp_reasoning.sse").read_bytes()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="qwen3.8:27b"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+    assert result.text == "Hi"
+    assert result.reasoning_tokens == 3
+    assert result.content_tokens == 1
+    assert result.first_token_ns is not None
+    assert result.first_content_ns is not None
+    assert result.finish_reason == "stop"
+    assert result.output_tokens == 128
+    trial = _as_trial(result)
+    assert trial.decode_source == "server"
+    assert trial.decode_tps is not None
+    assert abs(trial.decode_tps - (128 / 2.805)) < 1e-6

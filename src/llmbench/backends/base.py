@@ -35,6 +35,7 @@ class StreamResult:
     end_ns: int
     first_byte_ns: int | None = None
     first_token_ns: int | None = None
+    first_content_ns: int | None = None
     last_token_ns: int | None = None
     output_tokens: int = 0
     prompt_tokens: int | None = None
@@ -45,6 +46,8 @@ class StreamResult:
     server_timings: ServerTimings | None = None
     token_source: str | None = None
     reasoning_tokens: int = 0
+    content_tokens: int = 0
+    finish_reason: str | None = None
     inter_token_ns: list[int] = field(default_factory=list)
 
 

@@ -22,7 +22,7 @@ from llmbench.config import BenchConfig
 from llmbench.exceptions import ConfigError, LLMBenchError
 from llmbench.hardware import probe_hardware
 from llmbench.memory import MemorySampler
-from llmbench.metrics import fill_trial_derived, summarize
+from llmbench.metrics import FLAG_DECODE_DISAGREE, fill_trial_derived, summarize
 from llmbench.overhead import measure_harness_overhead
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
@@ -120,6 +120,14 @@ async def run_benchmark(
                 summaries.append(summary)
                 if summary.n_err:
                     warnings.append(f"{suite} concurrency={conc}: {summary.n_err} failed trial(s)")
+                mismatch = sum(
+                    1 for t in suite_trials if not t.warmup and FLAG_DECODE_DISAGREE in t.flags
+                )
+                if mismatch:
+                    warnings.append(
+                        f"{suite} concurrency={conc}: {mismatch} trial(s) where client "
+                        "decode tok/s disagrees with server timings by >25%; using server rate"
+                    )
     finally:
         memory_summary = sampler.stop() if sampler else None
         memory_samples = sampler.samples if sampler else []
@@ -404,13 +412,16 @@ async def _one_trial(
         start_ns=result.start_ns,
         first_byte_ns=result.first_byte_ns,
         first_token_ns=result.first_token_ns,
+        first_content_ns=result.first_content_ns,
         last_token_ns=result.last_token_ns,
         end_ns=result.end_ns,
         inter_token_ms=inter_ms,
         server_timings=result.server_timings,
         token_source=result.token_source,  # type: ignore[arg-type]
-        reasoning_tokens=result.reasoning_tokens or None,
+        reasoning_tokens=result.reasoning_tokens,
+        content_tokens=result.content_tokens,
         max_tokens=sampling.max_tokens,
+        finish_reason=result.finish_reason,
     )
     return fill_trial_derived(trial)
 

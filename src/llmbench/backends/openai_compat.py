@@ -94,9 +94,10 @@ class OpenAICompatBackend:
         start_ns = time.perf_counter_ns()
         first_byte_ns: int | None = None
         first_token_ns: int | None = None
+        first_content_ns: int | None = None
         last_token_ns: int | None = None
         prev_token_ns: int | None = None
-        n_tokens = 0
+        n_content = 0
         n_reasoning = 0
         n_chars = 0
         text_parts: list[str] = []
@@ -108,11 +109,12 @@ class OpenAICompatBackend:
         error_kind: str | None = None
         saw_done = False
         saw_finish = False
+        finish_reason: str | None = None
 
         def consume(events: list[bytes], now: int) -> None:
-            nonlocal first_token_ns, last_token_ns, prev_token_ns
-            nonlocal n_tokens, n_reasoning, n_chars, usage, timings, error, error_kind
-            nonlocal saw_done, saw_finish
+            nonlocal first_token_ns, first_content_ns, last_token_ns, prev_token_ns
+            nonlocal n_content, n_reasoning, n_chars, usage, timings, error, error_kind
+            nonlocal saw_done, saw_finish, finish_reason
             for event in events:
                 if event.strip() == _DONE:
                     saw_done = True
@@ -120,6 +122,7 @@ class OpenAICompatBackend:
                 delta, u, t, err, finish, reasoning = _parse_openai_event(event)
                 if finish:
                     saw_finish = True
+                    finish_reason = finish
                 if err:
                     error = err
                     error_kind = "protocol"
@@ -128,19 +131,25 @@ class OpenAICompatBackend:
                     usage = u
                 if t:
                     timings = t
+                generated = False
                 if reasoning:
                     n_reasoning += 1
+                    generated = True
                 if delta:
-                    n_tokens += 1
+                    n_content += 1
                     n_chars += len(delta)
+                    if first_content_ns is None:
+                        first_content_ns = now
+                    generated = True
+                    if request.collect_text:
+                        text_parts.append(delta)
+                if generated:
                     if first_token_ns is None:
                         first_token_ns = now
                     last_token_ns = now
                     if request.record_inter_token and prev_token_ns is not None:
                         inter.append(now - prev_token_ns)
                     prev_token_ns = now
-                    if request.collect_text:
-                        text_parts.append(delta)
 
         try:
             async with self._client.stream("POST", "/v1/chat/completions", json=payload) as resp:
@@ -174,8 +183,9 @@ class OpenAICompatBackend:
             error = "stream ended without a content token"
             error_kind = "interrupted"
 
+        generated = n_content + n_reasoning
         prompt_tokens, completion_tokens, token_source = _token_counts(
-            usage, timings, n_tokens, request.prompt
+            usage, timings, generated, request.prompt
         )
         server = _server_timings(timings, usage)
         return StreamResult(
@@ -183,8 +193,9 @@ class OpenAICompatBackend:
             end_ns=end_ns,
             first_byte_ns=first_byte_ns,
             first_token_ns=first_token_ns,
+            first_content_ns=first_content_ns,
             last_token_ns=last_token_ns,
-            output_tokens=completion_tokens if completion_tokens is not None else n_tokens,
+            output_tokens=completion_tokens if completion_tokens is not None else generated,
             prompt_tokens=prompt_tokens,
             output_chars=n_chars,
             text="".join(text_parts) if request.collect_text else None,
@@ -193,6 +204,8 @@ class OpenAICompatBackend:
             server_timings=server,
             token_source=token_source,
             reasoning_tokens=n_reasoning,
+            content_tokens=n_content,
+            finish_reason=finish_reason,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 

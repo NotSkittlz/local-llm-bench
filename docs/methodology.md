@@ -24,9 +24,13 @@ Adapters timestamp **before** parsing each inbound byte chunk:
 
 1. `start_ns` immediately before the HTTP write (or mock call).
 2. `first_byte_ns` on the first `aiter_bytes` chunk.
-3. `first_token_ns` when that chunk contains the first non-empty content delta.
-4. `last_token_ns` on the last content delta.
-5. `end_ns` when the stream terminates.
+3. `first_token_ns` when that chunk contains the first generated token of
+   **any** kind (Ollama `message.thinking`, llama.cpp `delta.reasoning_content`,
+   or content).
+4. `first_content_ns` when that chunk contains the first *content* token
+   (time to answer on a reasoning model).
+5. `last_token_ns` on the last generated token of any kind.
+6. `end_ns` when the stream terminates.
 
 If several tokens share a TCP segment they share a timestamp. That is honest:
 the client cannot have seen them earlier. Decode tok/s may look bursty on
@@ -36,14 +40,19 @@ highly buffered servers.
 
 ### Time to first token (TTFT)
 
-Elapsed time from `start_ns` to `first_token_ns`, in milliseconds.
+Elapsed time from `start_ns` to `first_token_ns`, in milliseconds. That first
+token is the first *generated* token, including reasoning/thinking tokens.
+
+`ttft_content_ms` is time from `start_ns` to `first_content_ns` — time to the
+first answer token after thinking. On a non-reasoning model the two are the
+same.
 
 TTFT includes:
 
 - kernel / loopback / HTTP overhead
 - server queueing (especially under concurrency > parallel slots)
 - prompt prefill
-- the first decode step
+- the first decode step (which may be a thinking token)
 - harness overhead (see below)
 
 TTFT is **not** prefill time. Ollama's `prompt_eval_duration` and llama.cpp
@@ -52,12 +61,28 @@ sends them.
 
 ### Decode tokens / second
 
+Prefer the **server-reported** rate when the server sends completion count and
+duration:
+
+- Ollama: `eval_count / eval_duration`
+- llama.cpp: `timings.predicted_n / timings.predicted_ms`
+
+Client fallback, over the full generated span (reasoning + content):
+
 ```
 (output_tokens - 1) / (last_token_ns - first_token_ns)
 ```
 
-The first token is attributed to TTFT, not the decode loop. A one-token
-completion has no decode rate (`null`, not `0`).
+The first token of any kind is attributed to TTFT, not the decode loop. A
+one-token completion has no decode rate (`null`, not `0`).
+
+`reasoning_tokens` and `content_tokens` are counted separately. Decode uses
+the full `output_tokens` (server `completion_tokens` / `eval_count` when
+present), not content-only.
+
+If client and server decode differ by more than 25% relative to the server,
+the trial is flagged `decode_client_server_disagree` and the run records a
+warning. Summaries use the preferred (server) rate.
 
 ### Prefill tokens / second
 

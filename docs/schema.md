@@ -39,8 +39,12 @@ and `cache_hit`. vLLM `usage.prompt_tokens_details.cached_tokens` is
 mapped onto `cached_prompt_tokens` when present.
 
 A truncated HTTP 200 stream (no `[DONE]` / `finish_reason` / `done`) is
-`ok=false`, `error_kind=truncated`. `reasoning_tokens` are counted
-separately from decode output.
+`ok=false`, `error_kind=truncated`. `reasoning_tokens` and `content_tokens`
+are counted separately. `first_token_ns` is the first generated token of any
+kind; `first_content_ns` / `ttft_content_ms` is time to the first answer
+token. Decode tok/s prefers server timings (`decode_source=server`) with a
+client fallback over the full generated span; a >25% disagreement is
+flagged `decode_client_server_disagree`.
 
 Adding fields is backward compatible. Renaming or changing units requires a
 major version bump.

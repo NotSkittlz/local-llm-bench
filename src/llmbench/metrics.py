@@ -2,11 +2,15 @@
 
 Token accounting:
 
-* **TTFT** is client-observed time from request start to first *content* token.
-  It includes queueing, prefill, and the first decode step. It is not "prefill
-  time" unless the server says so via ``ServerTimings``.
-* **Decode tok/s** uses ``max(output_tokens - 1, 0) / (end - first_token)``.
-  The first token is attributed to TTFT, not the decode loop.
+* **TTFT** (``ttft_ms``) is client-observed time from request start to the
+  first generated token of *any* kind (reasoning or content).
+* **TTFT-to-content** (``ttft_content_ms``) is time to the first *content*
+  token — time to answer on a reasoning model.
+* **Decode tok/s** prefers server-reported rates when present (Ollama
+  ``eval_count / eval_duration``, llama.cpp ``predicted_n / predicted_ms``).
+  The client fallback is ``(output_tokens - 1) / (last - first)`` over the
+  full generated span (first token of any kind → last token of any kind).
+  A >25% client-vs-server disagreement is flagged on the trial.
 * **Prefill tok/s** is uncached prompt tokens / uncached prompt milliseconds
   from ``ServerTimings``. Missing uncached counts yield ``null``, never a
   TTFT proxy labelled as server prefill. The proxy is stored separately as
@@ -21,6 +25,9 @@ from collections.abc import Iterable, Sequence
 
 from llmbench.clocks import ns_to_ms, ns_to_s
 from llmbench.schema import PercentileSummary, ServerTimings, Trial
+
+DECODE_DISAGREE_RATIO = 0.25
+FLAG_DECODE_DISAGREE = "decode_client_server_disagree"
 
 
 def percentile(xs: Sequence[float], p: float) -> float | None:
@@ -77,6 +84,8 @@ def trial_decode_tps(
     first_token_ns: int | None,
     last_token_ns: int | None,
 ) -> float | None:
+    """Client decode: (n - 1) / span from first generated token of any kind."""
+
     if output_tokens is None or output_tokens <= 1:
         return None
     if first_token_ns is None or last_token_ns is None:
@@ -85,6 +94,24 @@ def trial_decode_tps(
     if decode_s is None or decode_s <= 0:
         return None
     return (output_tokens - 1) / decode_s
+
+
+def trial_decode_tps_server(server: ServerTimings | None) -> float | None:
+    """Server decode: completion_tokens / completion_ms (Ollama eval, llama.cpp predicted)."""
+
+    if server is None:
+        return None
+    tokens = server.completion_tokens
+    ms = server.completion_ms
+    if tokens is None or ms is None or tokens <= 1 or ms <= 0:
+        return None
+    return tokens / (ms / 1000.0)
+
+
+def decode_disagrees(client: float | None, server: float | None) -> bool:
+    if client is None or server is None or server <= 0:
+        return False
+    return abs(client - server) / server > DECODE_DISAGREE_RATIO
 
 
 def trial_prefill_tps(server: ServerTimings | None) -> float | None:
@@ -116,13 +143,28 @@ def fill_trial_derived(trial: Trial) -> Trial:
     """Populate TTFT / decode / prefill fields from raw timestamps."""
 
     trial.ttft_ms = trial_ttft_ms(trial.start_ns, trial.first_token_ns)
+    trial.ttft_content_ms = trial_ttft_ms(trial.start_ns, trial.first_content_ns)
     trial.e2e_ms = trial_e2e_ms(trial.start_ns, trial.end_ns)
     trial.decode_ms = trial_decode_ms(trial.first_token_ns, trial.last_token_ns)
-    trial.decode_tps = trial_decode_tps(
+    client = trial_decode_tps(
         trial.output_tokens,
         trial.first_token_ns,
         trial.last_token_ns,
     )
+    server = trial_decode_tps_server(trial.server_timings)
+    trial.decode_tps_client = client
+    trial.decode_tps_server = server
+    if server is not None:
+        trial.decode_tps = server
+        trial.decode_source = "server"
+    elif client is not None:
+        trial.decode_tps = client
+        trial.decode_source = "client"
+    else:
+        trial.decode_tps = None
+        trial.decode_source = None
+    if decode_disagrees(client, server) and FLAG_DECODE_DISAGREE not in trial.flags:
+        trial.flags.append(FLAG_DECODE_DISAGREE)
     trial.prefill_tps = trial_prefill_tps(trial.server_timings)
     trial.prefill_tps_proxy = trial_prefill_tps_proxy(trial.prompt_tokens, trial.ttft_ms)
     if trial.prefill_tps is not None:

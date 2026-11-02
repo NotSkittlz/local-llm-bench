@@ -136,11 +136,11 @@ async def test_ollama_show_uses_model_key() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ollama_thinking_is_not_decode() -> None:
+async def test_ollama_thinking_timestamps_first_generated_token() -> None:
     lines = [
         {"message": {"thinking": "plan"}, "done": False},
         {"message": {"content": "Hi"}, "done": False},
-        {"message": {"content": ""}, "done": True, "eval_count": 1},
+        {"message": {"content": ""}, "done": True, "done_reason": "stop", "eval_count": 2},
     ]
     body = b"".join(json.dumps(x).encode() + b"\n" for x in lines)
 
@@ -154,5 +154,9 @@ async def test_ollama_thinking_is_not_decode() -> None:
     result = await backend.complete(_req())
     await backend.aclose()
     assert result.text == "Hi"
-    assert result.output_tokens == 1
+    assert result.output_tokens == 2
     assert result.reasoning_tokens == 1
+    assert result.content_tokens == 1
+    assert result.first_token_ns is not None
+    assert result.first_content_ns is not None
+    assert result.finish_reason == "stop"

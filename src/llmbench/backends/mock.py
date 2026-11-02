@@ -141,6 +141,7 @@ class MockBackend:
             end_ns=end_ns,
             first_byte_ns=first_byte_ns,
             first_token_ns=first_token_ns,
+            first_content_ns=first_token_ns,
             last_token_ns=last_token_ns,
             output_tokens=produced,
             prompt_tokens=prompt_tokens,

@@ -119,7 +119,7 @@ async def test_usage_floats_and_content_arrays_count_as_tokens() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reasoning_tokens_do_not_count_as_decode() -> None:
+async def test_reasoning_tokens_timestamp_first_generated_token() -> None:
     body = _sse(
         {"choices": [{"delta": {"reasoning_content": "think"}}]},
         {"choices": [{"delta": {"content": "Hi"}, "finish_reason": "stop"}]},
@@ -135,8 +135,12 @@ async def test_reasoning_tokens_do_not_count_as_decode() -> None:
     result = await backend.complete(_req())
     await backend.aclose()
     assert result.text == "Hi"
-    assert result.output_tokens == 1
     assert result.reasoning_tokens == 1
+    assert result.content_tokens == 1
+    assert result.output_tokens == 2
+    assert result.first_token_ns is not None
+    assert result.first_content_ns is not None
+    assert result.finish_reason == "stop"
 
 
 @pytest.mark.asyncio

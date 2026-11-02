@@ -3,11 +3,13 @@ from __future__ import annotations
 import math
 
 from llmbench.metrics import (
+    FLAG_DECODE_DISAGREE,
     approx_tokens_from_chars,
     fill_trial_derived,
     percentile,
     summarize,
     trial_decode_tps,
+    trial_decode_tps_server,
     trial_prefill_tps,
     trial_prefill_tps_proxy,
     trial_ttft_ms,
@@ -107,3 +109,47 @@ def test_summarize_does_not_mix_proxy_and_server() -> None:
 def test_approx_tokens() -> None:
     assert approx_tokens_from_chars(0) == 1
     assert approx_tokens_from_chars(16) == 4
+
+
+def test_server_decode_matches_ollama_eval_ground_truth() -> None:
+    # Direct Ollama /api/generate: eval_count=100 in 1379 ms = 72.5 tok/s.
+    server = ServerTimings(completion_tokens=100, completion_ms=1379.0)
+    tps = trial_decode_tps_server(server)
+    assert tps is not None
+    assert abs(tps - (100 / 1.379)) < 1e-9
+
+
+def test_server_decode_matches_llamacpp_predicted_ground_truth() -> None:
+    # llama.cpp timings: predicted_n=128 in 2805 ms = ~45.6 tok/s.
+    server = ServerTimings(completion_tokens=128, completion_ms=2805.0)
+    tps = trial_decode_tps_server(server)
+    assert tps is not None
+    assert abs(tps - (128 / 2.805)) < 1e-9
+
+
+def test_fill_prefers_server_decode_when_client_span_is_content_only() -> None:
+    # Live bug: output_tokens includes thinking, but first_token was first content.
+    # Client span of 20 chars / 65 us looked like 1934 tok/s; server was 45.6.
+    trial = Trial(
+        trial_id="t",
+        suite="short_chat",
+        prompt_id="chat-03",
+        concurrency=1,
+        ok=True,
+        prompt_chars=20,
+        output_tokens=128,
+        reasoning_tokens=122,
+        content_tokens=6,
+        start_ns=0,
+        first_token_ns=2_983_221_800,  # first *content* (wrong span)
+        last_token_ns=3_048_861_100,
+        end_ns=3_100_000_000,
+        server_timings=ServerTimings(completion_tokens=128, completion_ms=2804.361),
+    )
+    fill_trial_derived(trial)
+    assert trial.decode_source == "server"
+    assert trial.decode_tps_server is not None
+    assert abs(trial.decode_tps_server - (128 / 2.804361)) < 1e-6
+    assert trial.decode_tps == trial.decode_tps_server
+    assert FLAG_DECODE_DISAGREE in trial.flags
+    assert trial.ttft_ms is not None
