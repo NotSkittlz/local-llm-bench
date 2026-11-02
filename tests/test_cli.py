@@ -90,6 +90,8 @@ def test_refuses_cloud_url() -> None:
 def test_quality_strict_flag_exists() -> None:
     help_run = runner.invoke(app, ["run", "--help"])
     assert "--quality-strict" in help_run.stdout
+    assert "--timeout" in help_run.stdout
+    assert "--temperature" in help_run.stdout
     cfg = apply_cli_overrides(load_config(None), {"quality.strict": True})
     assert cfg.quality.strict is True
 

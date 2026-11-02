@@ -96,7 +96,7 @@ class OutputConfig(BaseModel):
 class BenchConfig(BaseModel):
     seed: int = 42
     warmup: int = 2
-    iterations: int = 8
+    iterations: int = 16
     concurrency: list[int] = Field(default_factory=lambda: [1])
     timeout_s: float = 120.0
     connect_timeout_s: float = 5.0

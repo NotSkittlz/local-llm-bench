@@ -52,6 +52,8 @@ class MockBackend:
         self.calls += 1
         start_ns = time.perf_counter_ns()
         n_out = max(1, self.config.mock_output_tokens)
+        if request.sampling.max_tokens > 0:
+            n_out = min(n_out, request.sampling.max_tokens)
         prompt_tokens = approx_tokens_from_chars(len(request.prompt))
         prefill_ns = self.config.mock_prompt_eval_ns_per_token * prompt_tokens
 

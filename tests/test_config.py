@@ -19,6 +19,7 @@ def test_defaults_are_local_mock() -> None:
     assert cfg.backend.type == "mock"
     assert cfg.sampling.temperature == 0.0
     assert cfg.seed == 42
+    assert cfg.iterations == 16
     assert cfg.model.name == "mock-7b"
 
 

@@ -37,7 +37,7 @@ def grouped_bar_chart(
 ) -> str:
     if not categories:
         return ""
-    left, right, top, bottom = 56, 16, 36, 48
+    left, right, top, bottom = 56, 16, 36, 56
     plot_w = width - left - right
     plot_h = height - top - bottom
     n_cat = len(categories)
@@ -72,7 +72,7 @@ def grouped_bar_chart(
         cx = gx + group_w / 2
         parts.append(
             f'<text class="tick cat" x="{cx:.1f}" y="{height - 14}" text-anchor="middle">'
-            f"{html.escape(_clip(label, 18))}</text>"
+            f"{html.escape(_clip(label, 24))}</text>"
         )
         for si, (sname, vals) in enumerate(series):
             v = vals[ci] if ci < len(vals) else None

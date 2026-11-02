@@ -71,6 +71,8 @@ def run(
     warmup: int | None = typer.Option(None, "--warmup"),
     concurrency: str | None = typer.Option(None, "--concurrency", help="e.g. 1 or 1,2,4"),
     seed: int | None = typer.Option(None, "--seed"),
+    timeout: float | None = typer.Option(None, "--timeout", help="Per-request timeout in seconds."),
+    temperature: float | None = typer.Option(None, "--temperature"),
     json_out: Path | None = typer.Option(None, "--json", help="Write JSON results."),
     csv_out: Path | None = typer.Option(None, "--csv"),
     html_out: Path | None = typer.Option(None, "--html"),
@@ -113,6 +115,10 @@ def run(
             overrides["concurrency"] = [int(x) for x in concurrency.split(",") if x.strip()]
         if seed is not None:
             overrides["seed"] = seed
+        if timeout is not None:
+            overrides["timeout_s"] = timeout
+        if temperature is not None:
+            overrides["sampling.temperature"] = temperature
         if label:
             overrides["output.label"] = label
         if quality is not None:

@@ -27,7 +27,9 @@ async def test_zero_delay_mock_is_fast() -> None:
     backend = MockBackend(
         BackendConfig(mock_output_tokens=16, mock_ttft_ns=0, mock_inter_token_ns=0)
     )
-    result = await backend.complete(_req())
+    result = await backend.complete(
+        CompletionRequest(prompt="hello", sampling=SamplingParams(max_tokens=16, seed=1))
+    )
     assert result.error is None
     assert result.output_tokens == 16
     assert result.first_token_ns is not None
@@ -70,6 +72,17 @@ async def test_interrupt_fault_returns_partial() -> None:
     assert result.error_kind == "interrupted"
     assert result.output_tokens == 2
     assert result.first_token_ns is not None
+
+
+@pytest.mark.asyncio
+async def test_mock_honors_max_tokens() -> None:
+    backend = MockBackend(
+        BackendConfig(mock_output_tokens=32, mock_ttft_ns=0, mock_inter_token_ns=0)
+    )
+    result = await backend.complete(
+        CompletionRequest(prompt="hi", sampling=SamplingParams(max_tokens=3, seed=1))
+    )
+    assert result.output_tokens == 3
 
 
 @pytest.mark.asyncio
