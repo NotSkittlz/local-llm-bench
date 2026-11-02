@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 import httpx
 
-from llmbench.backends.base import CompletionRequest, StreamResult
+from llmbench.backends.base import CompletionRequest, StreamResult, classify_stream_end
 from llmbench.backends.sse import feed_sse, flush_sse
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
@@ -176,12 +176,14 @@ class OpenAICompatBackend:
             error_kind = "http"
 
         end_ns = time.perf_counter_ns()
-        if error is None and not saw_done and not saw_finish:
-            error = "stream ended without a terminal event ([DONE] or finish_reason)"
-            error_kind = "truncated"
-        if first_token_ns is None and error is None:
-            error = "stream ended without a content token"
-            error_kind = "interrupted"
+        error, error_kind, flags = classify_stream_end(
+            error=error,
+            error_kind=error_kind,
+            saw_terminal=saw_done or saw_finish,
+            missing_terminal="stream ended without a terminal event ([DONE] or finish_reason)",
+            content_tokens=n_content,
+            reasoning_tokens=n_reasoning,
+        )
 
         generated = n_content + n_reasoning
         prompt_tokens, completion_tokens, token_source = _token_counts(
@@ -206,6 +208,7 @@ class OpenAICompatBackend:
             reasoning_tokens=n_reasoning,
             content_tokens=n_content,
             finish_reason=finish_reason,
+            flags=flags,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 
@@ -220,7 +223,12 @@ def _headers(config: BackendConfig) -> dict[str, str]:
 def _chat_payload(
     model: str, request: CompletionRequest, *, flavor: Flavor = "openai_compat"
 ) -> dict[str, Any]:
-    wire = map_sampling(flavor, request.sampling, context_length=request.context_length)
+    wire = map_sampling(
+        flavor,
+        request.sampling,
+        context_length=request.context_length,
+        thinking=request.thinking,
+    )
     payload: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": request.prompt}],

@@ -23,3 +23,6 @@ landed on PR #1 after adversarial review:
 - Reasoning-model decode: timestamp the first token of any kind, keep
   TTFT-to-content separately, and prefer server `eval_count/eval_duration`
   or `predicted_n/predicted_ms`. Warn when client vs server disagree by >25%.
+- A finished length-limited response that is only reasoning is `ok` (flag
+  `no_content_reasoning_only`), not `interrupted`. `--thinking` maps to
+  Ollama `think` and llama.cpp/vLLM `chat_template_kwargs`.

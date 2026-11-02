@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from llmbench.backends.base import CompletionRequest
+from llmbench.backends.base import FLAG_NO_CONTENT_REASONING, CompletionRequest
 from llmbench.backends.ollama import OllamaBackend
 from llmbench.backends.openai_compat import OpenAICompatBackend
 from llmbench.config import BackendConfig
@@ -170,3 +170,56 @@ async def test_llamacpp_reasoning_fixture_uses_server_decode() -> None:
     assert trial.decode_source == "server"
     assert trial.decode_tps is not None
     assert abs(trial.decode_tps - (128 / 2.805)) < 1e-6
+
+
+@pytest.mark.asyncio
+async def test_ollama_thinking_length_is_ok_reasoning_only() -> None:
+    body = (FIXTURES / "ollama_thinking_length.ndjson").read_bytes()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body)
+
+    backend = OllamaBackend(
+        BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="qwen3.8:27b"),
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+    assert result.error_kind is None
+    assert FLAG_NO_CONTENT_REASONING in result.flags
+    assert result.finish_reason == "length"
+    assert result.content_tokens == 0
+    assert result.reasoning_tokens == 3
+    assert result.first_token_ns is not None
+    assert result.first_content_ns is None
+    trial = _as_trial(result)
+    assert trial.ok is True
+    assert trial.decode_source == "server"
+    assert trial.decode_tps is not None
+    assert abs(trial.decode_tps - (32 / 0.360)) < 1e-6
+
+
+@pytest.mark.asyncio
+async def test_llamacpp_reasoning_length_is_ok_reasoning_only() -> None:
+    body = (FIXTURES / "llamacpp_reasoning_length.sse").read_bytes()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    backend = OpenAICompatBackend(
+        BackendConfig(type="llamacpp", base_url="http://127.0.0.1:8080", model="qwen3.8:27b"),
+        flavor="llamacpp",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await backend.complete(_req())
+    await backend.aclose()
+    assert result.error is None
+    assert FLAG_NO_CONTENT_REASONING in result.flags
+    assert result.finish_reason == "length"
+    assert result.content_tokens == 0
+    assert result.reasoning_tokens == 2
+    assert result.first_content_ns is None
+    trial = _as_trial(result)
+    assert trial.decode_source == "server"
+    assert abs(trial.decode_tps - (32 / 0.720)) < 1e-6  # type: ignore[operator]

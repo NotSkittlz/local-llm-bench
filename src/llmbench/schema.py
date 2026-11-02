@@ -259,6 +259,7 @@ class RunConfigSnapshot(BaseModel):
     memory_sample_interval_ms: float = 250.0
     quality_enabled: bool = True
     collect_output_text: bool = False
+    thinking: str = "default"
 
 
 class RunResult(BaseModel):

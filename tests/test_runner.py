@@ -6,7 +6,7 @@ from llmbench.backends.mock import MockBackend
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.export import read_json, write_csv, write_json
 from llmbench.runner import run_benchmark
-from llmbench.schema import SamplingParams
+from llmbench.schema import BackendInfo, SamplingParams
 
 
 @pytest.mark.asyncio
@@ -194,3 +194,29 @@ async def test_summary_prefill_excludes_ttft_proxy() -> None:
     assert all(t.prefill_tps is None for t in result.trials if t.ok)
     assert all(t.prefill_source == "proxy_ttft" for t in result.trials if t.ok)
     assert any("proxy" in n for n in summary.notes)
+
+
+class _ThinkingBackend(MockBackend):
+    async def info(self) -> BackendInfo:
+        return BackendInfo(type="mock", extra={"capabilities": ["completion", "thinking"]})
+
+
+@pytest.mark.asyncio
+async def test_thinking_model_warns_when_budget_is_too_small() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="mock", mock_output_tokens=2, mock_ttft_ns=0, mock_inter_token_ns=0
+        ),
+        quality=QualityConfig(enabled=True, max_tokens=16),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
+    assert any("reasoning-capable" in w for w in result.warnings)
+    assert result.config.thinking == "default"
+
+    cfg.thinking = "off"
+    quiet = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
+    assert not any("reasoning-capable" in w for w in quiet.warnings)

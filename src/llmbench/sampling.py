@@ -26,6 +26,7 @@ class SamplingWire:
     warnings: list[str] = field(default_factory=list)
     openai_body: dict[str, Any] = field(default_factory=dict)
     ollama_options: dict[str, Any] = field(default_factory=dict)
+    ollama_extra: dict[str, Any] = field(default_factory=dict)
 
 
 def map_sampling(
@@ -33,16 +34,20 @@ def map_sampling(
     sampling: SamplingParams,
     *,
     context_length: int | None = None,
+    thinking: str = "default",
 ) -> SamplingWire:
     if flavor == "ollama":
-        return _map_ollama(sampling, context_length)
-    if flavor == "vllm":
-        return _map_vllm(sampling, context_length)
-    if flavor == "llamacpp":
-        return _map_llamacpp(sampling, context_length)
-    if flavor == "mock":
-        return _map_mock(sampling, context_length)
-    return _map_openai_compat(sampling, context_length)
+        wire = _map_ollama(sampling, context_length)
+    elif flavor == "vllm":
+        wire = _map_vllm(sampling, context_length)
+    elif flavor == "llamacpp":
+        wire = _map_llamacpp(sampling, context_length)
+    elif flavor == "mock":
+        wire = _map_mock(sampling, context_length)
+    else:
+        wire = _map_openai_compat(sampling, context_length)
+    _apply_thinking(wire, flavor, thinking)
+    return wire
 
 
 def _map_openai_compat(sampling: SamplingParams, context_length: int | None) -> SamplingWire:
@@ -184,6 +189,29 @@ def _optional_requested(sampling: SamplingParams) -> list[str]:
     if sampling.repeat_penalty is not None:
         names.append("repeat_penalty")
     return names
+
+
+def _apply_thinking(wire: SamplingWire, flavor: Flavor, thinking: str) -> None:
+    if thinking in {"", "default"}:
+        return
+    if flavor == "ollama":
+        value: Any = False if thinking == "off" else thinking
+        wire.ollama_extra["think"] = value
+        wire.applied["think"] = value
+        return
+    if flavor == "mock":
+        wire.applied["thinking"] = thinking
+        return
+    kwargs: dict[str, Any] = {}
+    if thinking == "off":
+        kwargs["enable_thinking"] = False
+        if flavor == "llamacpp":
+            kwargs["reasoning_budget"] = 0
+    else:
+        kwargs["enable_thinking"] = True
+        kwargs["reasoning_effort"] = thinking
+    wire.openai_body["chat_template_kwargs"] = kwargs
+    wire.applied["chat_template_kwargs"] = kwargs
 
 
 def _drop_context(wire: SamplingWire, context_length: int | None, flavor: str) -> None:

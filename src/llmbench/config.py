@@ -21,8 +21,11 @@ from llmbench.exceptions import ConfigError
 from llmbench.schema import SamplingParams
 
 BackendType = Literal["mock", "openai_compat", "llamacpp", "vllm", "ollama"]
+ThinkingMode = Literal["default", "off", "low", "medium", "high", "xhigh"]
+THINKING_MODES: tuple[ThinkingMode, ...] = ("default", "off", "low", "medium", "high", "xhigh")
 
 BUILTIN_SUITES = ("short_chat", "long_context", "code")
+REASONING_BUDGET_WARN_TOKENS = 64
 
 
 class BackendConfig(BaseModel):
@@ -110,6 +113,7 @@ class BenchConfig(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
+    thinking: ThinkingMode = "default"
 
     @field_validator("concurrency")
     @classmethod

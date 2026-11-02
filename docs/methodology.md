@@ -180,6 +180,28 @@ Whatever you set for the speed run is what is sent and what is recorded.
 `--quality-strict` / `quality.strict: true` aborts the run if the probe fails.
 The default Paris substring is a smoke test, not a quantization audit.
 
+## Reasoning / thinking models
+
+Ollama streams a `message.thinking` field; llama.cpp streams
+`delta.reasoning_content`. Those tokens are generated tokens: they count in
+`output_tokens` / decode tok/s and they stamp `first_token_ns`.
+
+A stream that ends with `done: true` / `[DONE]` / `finish_reason` after
+spending the whole `max_tokens` budget on thinking (`done_reason=length` or
+`finish_reason=length`) is **ok** for speed metrics, flagged
+`no_content_reasoning_only`. A TCP/HTTP cut-off with no terminal event is
+still `error_kind=truncated`.
+
+`--thinking {default,off,low,medium,high,xhigh}` is recorded on the run
+snapshot. `off` sends Ollama `think=false` and llama.cpp / vLLM
+`chat_template_kwargs.enable_thinking=false` (llama.cpp also
+`reasoning_budget=0`). `default` leaves the server's default.
+
+If `/api/show` capabilities include `thinking` (or llama.cpp
+`chat_template_caps` reports reasoning support) and the smallest
+`max_tokens` on the run is under 64, the harness warns: thinking will often
+eat a 16- or 32-token budget before any content.
+
 The mock backend answers the default France prompt with `Paris` so demos
 exercise a passing probe. That is not a claim about any real model.
 

@@ -16,9 +16,9 @@ from datetime import UTC, datetime
 
 from llmbench import __version__
 from llmbench.backends import Backend, build_backend
-from llmbench.backends.base import CompletionRequest, StreamResult
+from llmbench.backends.base import FLAG_NO_CONTENT_REASONING, CompletionRequest, StreamResult
 from llmbench.clocks import check_trial_clocks, wall_ns, wall_vs_monotonic_drift_ms
-from llmbench.config import BenchConfig
+from llmbench.config import REASONING_BUDGET_WARN_TOKENS, BenchConfig
 from llmbench.exceptions import ConfigError, LLMBenchError
 from llmbench.hardware import probe_hardware
 from llmbench.memory import MemorySampler
@@ -75,6 +75,7 @@ async def run_benchmark(
     except Exception as exc:
         backend_info = BackendInfo(type=cfg.backend.type, base_url=cfg.backend.base_url)
         warnings.append(f"backend info failed: {exc}")
+    _warn_thinking_budget(cfg, backend_info, warnings)
 
     sampler: MemorySampler | None = None
     if cfg.memory.enabled:
@@ -153,7 +154,12 @@ async def run_benchmark(
             warnings.append("mock delays are zero; reported tok/s is harness speed, not a model")
 
     flavor = cfg.backend.type
-    wire = map_sampling(flavor, cfg.sampling, context_length=cfg.model.context_length)
+    wire = map_sampling(
+        flavor,
+        cfg.sampling,
+        context_length=cfg.model.context_length,
+        thinking=cfg.thinking,
+    )
     sampling_snap = cfg.sampling.model_copy(deep=True)
     sampling_snap.applied = dict(wire.applied)
     sampling_snap.dropped = list(wire.dropped)
@@ -207,6 +213,7 @@ async def run_benchmark(
             memory_sample_interval_ms=cfg.memory.sample_interval_ms,
             quality_enabled=cfg.quality.enabled,
             collect_output_text=cfg.collect_output_text,
+            thinking=cfg.thinking,
         ),
         sampling=sampling_snap,
         model=model,
@@ -323,6 +330,12 @@ async def _run_suite(
         )
     if cache_hits:
         notes.append(f"{cache_hits}/{len(ok_trials)} measured trials reported cached prompt tokens")
+    reasoning_only = sum(1 for t in ok_trials if FLAG_NO_CONTENT_REASONING in t.flags)
+    if reasoning_only:
+        notes.append(
+            f"{reasoning_only}/{len(ok_trials)} measured trials finished with only "
+            "reasoning tokens (no_content_reasoning_only); counted for speed metrics"
+        )
     summary = SuiteSummary(
         name=suite,
         concurrency=concurrency,
@@ -362,6 +375,7 @@ async def _one_trial(
         prompt_id=prompt.prompt_id,
         context_length=cfg.model.context_length,
         flavor=cfg.backend.type,
+        thinking=cfg.thinking,
     )
     try:
         result: StreamResult = await backend.complete(request)
@@ -422,6 +436,7 @@ async def _one_trial(
         content_tokens=result.content_tokens,
         max_tokens=sampling.max_tokens,
         finish_reason=result.finish_reason,
+        flags=list(result.flags),
     )
     return fill_trial_derived(trial)
 
@@ -432,6 +447,48 @@ def _sampling_for(cfg: BenchConfig, prompt: Prompt) -> SamplingParams:
     if prompt.max_tokens is not None:
         sampling.max_tokens = prompt.max_tokens
     return sampling
+
+
+def _model_supports_thinking(info: BackendInfo) -> bool:
+    extra = info.extra or {}
+    caps = extra.get("capabilities")
+    if isinstance(caps, list) and any(str(c).lower() == "thinking" for c in caps):
+        return True
+    props = extra.get("props")
+    if isinstance(props, dict):
+        chat_caps = props.get("chat_template_caps")
+        if isinstance(chat_caps, dict) and (
+            chat_caps.get("supports_reasoning_effort")
+            or chat_caps.get("supports_preserve_reasoning")
+        ):
+            return True
+    return False
+
+
+def _min_generation_budget(cfg: BenchConfig) -> int:
+    budgets = [cfg.sampling.max_tokens]
+    if cfg.quality.enabled:
+        budgets.append(cfg.quality.max_tokens)
+    for suite in cfg.suites:
+        for prompt in load_suite(suite, cfg):
+            if prompt.max_tokens is not None:
+                budgets.append(prompt.max_tokens)
+    return min(budgets)
+
+
+def _warn_thinking_budget(cfg: BenchConfig, info: BackendInfo, warnings: list[str]) -> None:
+    if cfg.thinking == "off":
+        return
+    if not _model_supports_thinking(info):
+        return
+    budget = _min_generation_budget(cfg)
+    if budget >= REASONING_BUDGET_WARN_TOKENS:
+        return
+    warnings.append(
+        f"model looks reasoning-capable but the smallest max_tokens budget is {budget}; "
+        "thinking may consume the whole budget before any content token. "
+        "Pass --thinking off or raise max_tokens (long_context defaults to 32)."
+    )
 
 
 def _validate(cfg: BenchConfig) -> None:

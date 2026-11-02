@@ -119,7 +119,10 @@ async def test_ollama_show_uses_model_key() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/api/show"):
             seen.update(json.loads(request.content))
-            return httpx.Response(200, json={"details": {"family": "llama"}})
+            return httpx.Response(
+                200,
+                json={"details": {"family": "llama"}, "capabilities": ["completion", "thinking"]},
+            )
         if request.url.path.endswith("/api/version"):
             return httpx.Response(200, json={"version": "0.0-test"})
         return httpx.Response(404)
@@ -133,6 +136,7 @@ async def test_ollama_show_uses_model_key() -> None:
     assert seen.get("model") == "llama3.2"
     assert "name" not in seen
     assert info.extra.get("family") == "llama"
+    assert info.extra.get("capabilities") == ["completion", "thinking"]
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,7 @@ from rich.text import Text
 from llmbench import __version__
 from llmbench.config import (
     BUILTIN_SUITES,
+    THINKING_MODES,
     apply_cli_overrides,
     load_config,
 )
@@ -89,6 +90,11 @@ def run(
         "--allow-remote",
         help="Permit a non-local backend URL (prompts will leave this machine).",
     ),
+    thinking: str | None = typer.Option(
+        None,
+        "--thinking",
+        help="Reasoning control: default | off | low | medium | high | xhigh.",
+    ),
 ) -> None:
     """Run a benchmark and write JSON/CSV/HTML."""
 
@@ -127,6 +133,13 @@ def run(
             overrides["quality.strict"] = True
         if allow_remote:
             overrides["backend.allow_remote"] = True
+        if thinking is not None:
+            mode = thinking.strip().lower()
+            if mode not in THINKING_MODES:
+                allowed = ", ".join(THINKING_MODES)
+                err_console.print(f"[red]Error:[/] --thinking must be one of: {allowed}")
+                raise typer.Exit(2)
+            overrides["thinking"] = mode
         cfg = apply_cli_overrides(cfg, overrides)
 
         json_path = json_out or (

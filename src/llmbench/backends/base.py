@@ -17,6 +17,32 @@ from typing import Protocol
 
 from llmbench.schema import BackendInfo, SamplingParams, ServerTimings
 
+FLAG_NO_CONTENT_REASONING = "no_content_reasoning_only"
+
+
+def classify_stream_end(
+    *,
+    error: str | None,
+    error_kind: str | None,
+    saw_terminal: bool,
+    missing_terminal: str,
+    content_tokens: int,
+    reasoning_tokens: int,
+) -> tuple[str | None, str | None, list[str]]:
+    """Distinguish a truncated stream from a finished reasoning-only response."""
+
+    flags: list[str] = []
+    if error is not None:
+        return error, error_kind, flags
+    if not saw_terminal:
+        return missing_terminal, "truncated", flags
+    if content_tokens <= 0 and reasoning_tokens > 0:
+        flags.append(FLAG_NO_CONTENT_REASONING)
+        return None, None, flags
+    if content_tokens <= 0:
+        return "stream ended without a content token", "interrupted", flags
+    return None, None, flags
+
 
 @dataclass(slots=True)
 class CompletionRequest:
@@ -27,6 +53,7 @@ class CompletionRequest:
     prompt_id: str = ""
     context_length: int | None = None
     flavor: str = "openai_compat"
+    thinking: str = "default"
 
 
 @dataclass(slots=True)
@@ -48,6 +75,7 @@ class StreamResult:
     reasoning_tokens: int = 0
     content_tokens: int = 0
     finish_reason: str | None = None
+    flags: list[str] = field(default_factory=list)
     inter_token_ns: list[int] = field(default_factory=list)
 
 

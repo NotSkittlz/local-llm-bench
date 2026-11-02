@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from llmbench.backends.base import CompletionRequest, StreamResult
+from llmbench.backends.base import CompletionRequest, StreamResult, classify_stream_end
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
 from llmbench.sampling import map_sampling
@@ -63,6 +63,9 @@ class OllamaBackend:
                 if isinstance(body.get("details"), dict):
                     extra["family"] = body["details"].get("family")
                     extra["quantization"] = body["details"].get("quantization_level")
+                caps = body.get("capabilities")
+                if isinstance(caps, list):
+                    extra["capabilities"] = [str(c) for c in caps]
         except httpx.HTTPError:
             pass
         return BackendInfo(
@@ -74,12 +77,18 @@ class OllamaBackend:
         )
 
     async def complete(self, request: CompletionRequest) -> StreamResult:
-        wire = map_sampling("ollama", request.sampling, context_length=request.context_length)
+        wire = map_sampling(
+            "ollama",
+            request.sampling,
+            context_length=request.context_length,
+            thinking=request.thinking,
+        )
         payload = {
             "model": self.config.model,
             "messages": [{"role": "user", "content": request.prompt}],
             "stream": True,
             "options": wire.ollama_options,
+            **wire.ollama_extra,
         }
         start_ns = time.perf_counter_ns()
         first_byte_ns: int | None = None
@@ -183,12 +192,14 @@ class OllamaBackend:
             error_kind = "http"
 
         end_ns = time.perf_counter_ns()
-        if error is None and not saw_done:
-            error = "stream ended without a terminal event (done:true)"
-            error_kind = "truncated"
-        if first_token_ns is None and error is None:
-            error = "stream ended without a content token"
-            error_kind = "interrupted"
+        error, error_kind, flags = classify_stream_end(
+            error=error,
+            error_kind=error_kind,
+            saw_terminal=saw_done,
+            missing_terminal="stream ended without a terminal event (done:true)",
+            content_tokens=n_content,
+            reasoning_tokens=n_reasoning,
+        )
 
         server = None
         generated = n_content + n_reasoning
@@ -241,6 +252,7 @@ class OllamaBackend:
             reasoning_tokens=n_reasoning,
             content_tokens=n_content,
             finish_reason=finish_reason,
+            flags=flags,
             inter_token_ns=inter if request.record_inter_token else [],
         )
 

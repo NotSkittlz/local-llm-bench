@@ -44,7 +44,9 @@ are counted separately. `first_token_ns` is the first generated token of any
 kind; `first_content_ns` / `ttft_content_ms` is time to the first answer
 token. Decode tok/s prefers server timings (`decode_source=server`) with a
 client fallback over the full generated span; a >25% disagreement is
-flagged `decode_client_server_disagree`.
+flagged `decode_client_server_disagree`. A completed stream with only
+reasoning (`done_reason`/`finish_reason=length`) is `ok` with flag
+`no_content_reasoning_only`. `config.thinking` records `--thinking`.
 
 Adding fields is backward compatible. Renaming or changing units requires a
 major version bump.

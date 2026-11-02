@@ -15,6 +15,7 @@ model:
   # User-declared metadata (not applied except Ollama num_ctx).
   quantization: Q4_K_M
   context_length: 8192
+thinking: default     # default | off | low | medium | high | xhigh
 sampling:
   temperature: 0.0    # recorded exactly; the harness does not rewrite this
   top_p: 1.0

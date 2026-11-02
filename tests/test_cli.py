@@ -92,8 +92,16 @@ def test_quality_strict_flag_exists() -> None:
     assert "--quality-strict" in help_run.stdout
     assert "--timeout" in help_run.stdout
     assert "--temperature" in help_run.stdout
+    assert "--thinking" in help_run.stdout
     cfg = apply_cli_overrides(load_config(None), {"quality.strict": True})
     assert cfg.quality.strict is True
+
+
+def test_invalid_thinking_is_rejected() -> None:
+    result = runner.invoke(app, ["run", "--backend", "mock", "--thinking", "banana"])
+    assert result.exit_code == 2
+    blob = (result.output + (result.stderr or "")).lower()
+    assert "thinking" in blob
 
 
 def test_suites_and_version() -> None:
