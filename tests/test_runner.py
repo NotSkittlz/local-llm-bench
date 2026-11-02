@@ -205,6 +205,28 @@ async def test_thinking_model_warns_when_budget_is_too_small() -> None:
     cfg = BenchConfig(
         warmup=0,
         iterations=1,
+        suites=["long_context"],
+        long_context_chars=256,
+        backend=BackendConfig(
+            type="mock", mock_output_tokens=2, mock_ttft_ns=0, mock_inter_token_ns=0
+        ),
+        quality=QualityConfig(enabled=True, max_tokens=16),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
+    assert any("smallest max_tokens budget is 32" in w for w in result.warnings)
+    assert result.config.thinking == "default"
+
+    cfg.thinking = "off"
+    quiet = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
+    assert not any("reasoning-capable" in w for w in quiet.warnings)
+
+
+@pytest.mark.asyncio
+async def test_thinking_warning_ignores_quality_probe_budget() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
         suites=["short_chat"],
         backend=BackendConfig(
             type="mock", mock_output_tokens=2, mock_ttft_ns=0, mock_inter_token_ns=0
@@ -213,9 +235,5 @@ async def test_thinking_model_warns_when_budget_is_too_small() -> None:
         memory=MemoryConfig(enabled=False),
     )
     result = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
-    assert any("reasoning-capable" in w for w in result.warnings)
-    assert result.config.thinking == "default"
-
-    cfg.thinking = "off"
-    quiet = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
-    assert not any("reasoning-capable" in w for w in quiet.warnings)
+    assert not any("reasoning-capable" in w for w in result.warnings)
+    assert not any("smallest max_tokens budget is 16" in w for w in result.warnings)

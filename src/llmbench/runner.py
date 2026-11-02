@@ -521,9 +521,13 @@ def _model_supports_thinking(info: BackendInfo) -> bool:
 
 
 def _min_generation_budget(cfg: BenchConfig) -> int:
+    """Smallest max_tokens on the speed-run path (quality probe is excluded).
+
+    The quality probe always sends ``thinking=off``, so its 16-token budget
+    must not drive the reasoning-capable warning.
+    """
+
     budgets = [cfg.sampling.max_tokens]
-    if cfg.quality.enabled:
-        budgets.append(cfg.quality.max_tokens)
     for suite in cfg.suites:
         for prompt in load_suite(suite, cfg):
             if prompt.max_tokens is not None:

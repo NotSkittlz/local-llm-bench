@@ -41,3 +41,5 @@ landed on PR #1 after adversarial review:
   per-request semantics for Ollama `num_ctx` / `OLLAMA_NUM_PARALLEL`.
 - Rich console output escapes interpolated strings so notes like
   `[nvidia]` are not swallowed as markup.
+- Thinking-budget warning ignores the quality probe (always
+  `thinking=off`); the speed-run minimum (long_context = 32) is used.
