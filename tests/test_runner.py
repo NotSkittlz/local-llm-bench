@@ -95,6 +95,30 @@ async def test_runner_does_not_replay_warmup_prompts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_code_suite_records_max_tokens_range() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=6,
+        concurrency=[1],
+        suites=["code"],
+        backend=BackendConfig(
+            type="mock", mock_output_tokens=2, mock_ttft_ns=0, mock_inter_token_ns=0
+        ),
+        sampling=SamplingParams(max_tokens=128),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg)
+    assert result.sampling.max_tokens == 128
+    assert result.sampling.max_tokens_min == 96
+    assert result.sampling.max_tokens_max == 256
+    assert {t.max_tokens for t in result.trials} <= {96, 128, 192, 256}
+    assert min(t.max_tokens or 0 for t in result.trials) == 96
+    html = __import__("llmbench.report", fromlist=["render_html"]).render_html([result])
+    assert "96-256" in html
+
+
+@pytest.mark.asyncio
 async def test_summary_prefill_excludes_ttft_proxy() -> None:
     cfg = BenchConfig(
         warmup=0,

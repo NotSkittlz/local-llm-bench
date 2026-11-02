@@ -37,7 +37,11 @@ async def test_html_is_self_contained_and_flags_synthetic() -> None:
     assert "Harness" in html or "harness" in html.lower()
     assert "TTFT" in html
     assert "µs" in html or "ms" in html
-    assert "Prefill" in html
+    assert "Prefill p50 (server)" in html
+    assert "Prefill proxy p50" in html
+    assert "51177" not in html
+    # Server prefill is omitted when the mock has no uncached prompt_ms.
+    assert "never mixed" in html.lower() or "not mixed" in html.lower() or "Prefill proxy" in html
     md = render_markdown([run])
     assert "Synthetic" in md
     assert "short_chat" in md
@@ -84,3 +88,27 @@ async def test_compare_two_runs() -> None:
     assert "machine-a" in html and "machine-b" in html
     md = render_markdown([a, b])
     assert "machine-a" in md and "machine-b" in md
+
+
+@pytest.mark.asyncio
+async def test_concurrency_chart_has_one_series_per_suite() -> None:
+    run = await run_benchmark(
+        BenchConfig(
+            warmup=0,
+            iterations=2,
+            concurrency=[1, 2],
+            suites=["short_chat", "code"],
+            backend=BackendConfig(
+                type="mock",
+                mock_output_tokens=4,
+                mock_ttft_ns=0,
+                mock_inter_token_ns=0,
+            ),
+            quality=QualityConfig(enabled=False),
+            memory=MemoryConfig(enabled=False),
+        )
+    )
+    html = render_html([run])
+    assert "per suite" in html
+    assert ">short_chat</text>" in html
+    assert ">code</text>" in html

@@ -148,6 +148,10 @@ async def run_benchmark(
     sampling_snap = cfg.sampling.model_copy(deep=True)
     sampling_snap.applied = dict(wire.applied)
     sampling_snap.dropped = list(wire.dropped)
+    sent_max = [t.max_tokens for t in trials if t.max_tokens is not None]
+    if sent_max:
+        sampling_snap.max_tokens_min = min(sent_max)
+        sampling_snap.max_tokens_max = max(sent_max)
     for w in wire.warnings:
         if w not in warnings:
             warnings.append(w)
@@ -359,6 +363,7 @@ async def _one_trial(
             prompt_chars=len(prompt.text),
             start_ns=now,
             end_ns=now,
+            max_tokens=sampling.max_tokens,
         )
         return fill_trial_derived(trial)
 
@@ -395,6 +400,7 @@ async def _one_trial(
         inter_token_ms=inter_ms,
         server_timings=result.server_timings,
         token_source=result.token_source,  # type: ignore[arg-type]
+        max_tokens=sampling.max_tokens,
     )
     return fill_trial_derived(trial)
 

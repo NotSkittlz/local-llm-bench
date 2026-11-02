@@ -47,6 +47,8 @@ class SamplingParams(BaseModel):
     repeat_penalty: float | None = None
     seed: int = 42
     max_tokens: int = 128
+    max_tokens_min: int | None = None
+    max_tokens_max: int | None = None
     stop: list[str] = Field(default_factory=list)
     applied: dict[str, Any] = Field(default_factory=dict)
     dropped: list[str] = Field(default_factory=list)

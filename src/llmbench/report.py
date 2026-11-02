@@ -167,7 +167,7 @@ def _hardware_section(runs: list[RunResult]) -> str:
             (
                 "Sampling",
                 f"T={run.sampling.temperature} top_p={run.sampling.top_p} "
-                f"max_tokens={run.sampling.max_tokens} seed={run.sampling.seed}"
+                f"max_tokens={_max_tokens_label(run.sampling)} seed={run.sampling.seed}"
                 + (
                     f" (dropped: {', '.join(run.sampling.dropped)})" if run.sampling.dropped else ""
                 ),
@@ -243,17 +243,32 @@ def _charts_section(runs: list[RunResult]) -> str:
         )
         concs = sorted({s.concurrency for s in run.summaries})
         if len(concs) > 1:
-            tput = []
-            clabels = []
-            for c in concs:
-                match = next((s for s in run.summaries if s.concurrency == c), None)
-                clabels.append(str(c))
-                tput.append(match.throughput_output_tps if match else None)
+            suite_names: list[str] = []
+            seen: set[str] = set()
+            for s in run.summaries:
+                if s.name not in seen:
+                    seen.add(s.name)
+                    suite_names.append(s.name)
+            clabels = [str(c) for c in concs]
+            series = []
+            for suite in suite_names:
+                tput = []
+                for c in concs:
+                    match = next(
+                        (
+                            row
+                            for row in run.summaries
+                            if row.concurrency == c and row.name == suite
+                        ),
+                        None,
+                    )
+                    tput.append(match.throughput_output_tps if match else None)
+                series.append((suite, tput))
             parts.append(
                 grouped_bar_chart(
-                    title="Output tok/s vs concurrency (wall-clock)",
+                    title="Output tok/s vs concurrency (wall-clock, per suite)",
                     categories=clabels,
-                    series=[("throughput", tput)],
+                    series=series,
                     unit="tok/s",
                 )
             )
@@ -295,7 +310,8 @@ def _tables_section(runs: list[RunResult]) -> str:
         "TTFT p50",
         "TTFT p95",
         "Decode p50",
-        "Prefill p50†",
+        "Prefill p50 (server)",
+        "Prefill proxy p50",
         "E2E p50",
         "E2E p95",
         "Tok/s wall",
@@ -318,6 +334,7 @@ def _tables_section(runs: list[RunResult]) -> str:
                 _n(s.ttft_ms.p95),
                 _n(s.decode_tps.p50),
                 _n(s.prefill_tps.p50),
+                _n(s.prefill_tps_proxy.p50 if s.prefill_tps_proxy else None),
                 _n(s.e2e_ms.p50),
                 _n(s.e2e_ms.p95),
                 _n(s.throughput_output_tps),
@@ -333,16 +350,15 @@ def _tables_section(runs: list[RunResult]) -> str:
             for n in s.notes:
                 if n not in note_bits:
                     note_bits.append(n)
+    parts.append(
+        "<p class='sub'>Prefill (server) is uncached prompt tokens / uncached prompt ms. "
+        "Prefill proxy is prompt_tokens/TTFT and is never mixed into the server column.</p>"
+    )
     if note_bits:
         parts.append("<ul class='notes'>")
-        parts.append("<li>† Prefill may be a TTFT proxy when the server omits prompt_ms.</li>")
         for n in note_bits:
             parts.append(f"<li>{html.escape(n)}</li>")
         parts.append("</ul>")
-    else:
-        parts.append(
-            "<p class='sub'>† Prefill is server prompt_ms when present; otherwise prompt_tokens/TTFT proxy.</p>"
-        )
 
     if len(runs) > 1:
         parts.append("<h3>Deltas vs first run (p50 decode tok/s, TTFT)</h3>")
@@ -423,7 +439,7 @@ def _markdown_single(run: RunResult) -> list[str]:
         "",
         f"- Backend: `{run.backend.type}` {run.backend.version or ''}".rstrip(),
         f"- Sampling: T={run.sampling.temperature} top_p={run.sampling.top_p} "
-        f"max_tokens={run.sampling.max_tokens} seed={run.sampling.seed}",
+        f"max_tokens={_max_tokens_label(run.sampling)} seed={run.sampling.seed}",
         f"- Hardware: {run.hardware.cpu_name or 'CPU?'} · "
         f"{(run.hardware.gpus[0].name if run.hardware.gpus else 'no GPU')}",
         "",
@@ -467,6 +483,17 @@ def _markdown_compare(runs: list[RunResult]) -> list[str]:
                 vals.append(_n(fn(s) if s else None))
             lines.append(f"| {key[0]} | {key[1]} | {label} | " + " | ".join(vals) + " |")
     return lines
+
+
+def _max_tokens_label(sampling: object) -> str:
+    lo = getattr(sampling, "max_tokens_min", None)
+    hi = getattr(sampling, "max_tokens_max", None)
+    default = getattr(sampling, "max_tokens", None)
+    if isinstance(lo, int) and isinstance(hi, int) and lo != hi:
+        return f"{lo}-{hi}"
+    if default is not None:
+        return str(default)
+    return "—"
 
 
 def _declared(value: object, source: str | None) -> str:

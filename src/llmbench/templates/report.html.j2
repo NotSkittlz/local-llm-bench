@@ -214,7 +214,7 @@
   <ul class="notes">
     <li>TTFT is client-observed time to first <em>content</em> token. It includes queueing, prefill, and the first decode step.</li>
     <li>Decode tok/s excludes that first token: (output tokens − 1) / (last token − first token).</li>
-    <li>Prefill tok/s uses server prompt timings when present; otherwise it is the proxy prompt_tokens / TTFT.</li>
+    <li>Prefill (server) is uncached prompt tokens / uncached prompt ms. The proxy column is prompt_tokens/TTFT and is never mixed into server prefill.</li>
     <li>p50 / p95 are linear-interpolation percentiles over successful measured trials (warmup discarded).</li>
     <li>Harness overhead is the client floor measured against a zero-delay mock. Subtract it from TTFT for a lower bound on server time.</li>
     <li>VRAM is device-level when NVML/nvidia-smi is available, sampled on a niced background thread (~4 Hz, 1 Hz for nvidia-smi).</li>
