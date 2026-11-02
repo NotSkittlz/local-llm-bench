@@ -17,6 +17,7 @@ import contextlib
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -171,8 +172,10 @@ class _NvmlSession:
 
 
 def _deprioritize() -> None:
-    with contextlib.suppress(OSError):
-        os.nice(10)
+    # os.nice is process-wide on Darwin; only niceness the sampler thread on Linux.
+    if sys.platform == "linux":
+        with contextlib.suppress(OSError):
+            os.nice(10)
     try:
         ncpu = os.cpu_count() or 1
         if ncpu > 1 and hasattr(os, "sched_setaffinity"):

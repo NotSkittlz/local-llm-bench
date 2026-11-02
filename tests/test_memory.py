@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from llmbench.memory import MemorySampler
+from llmbench.memory import MemorySampler, _deprioritize
 from llmbench.schema import MemorySample
 
 
@@ -24,6 +24,20 @@ def test_sampler_collects_on_background_thread() -> None:
     assert ts == sorted(ts)
     assert sampler._thread is not None
     assert not sampler._thread.is_alive()
+
+
+def test_nice_is_linux_only(monkeypatch) -> None:
+    called: list[int] = []
+    monkeypatch.setattr("llmbench.memory.os.nice", lambda n: called.append(n))
+    monkeypatch.setattr(
+        "llmbench.memory.os.sched_setaffinity", lambda pid, cpus: None, raising=False
+    )
+    monkeypatch.setattr("llmbench.memory.sys.platform", "darwin")
+    _deprioritize()
+    assert called == []
+    monkeypatch.setattr("llmbench.memory.sys.platform", "linux")
+    _deprioritize()
+    assert called == [10]
 
 
 def test_sampler_stop_without_start_is_empty() -> None:
