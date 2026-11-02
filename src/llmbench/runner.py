@@ -134,6 +134,10 @@ async def run_benchmark(
 
     synthetic = cfg.backend.type == "mock"
     lineage = "synthetic_mock" if synthetic else "measured"
+    if cfg.backend.allow_remote and cfg.backend.base_url:
+        warnings.append(
+            f"allow_remote is set; prompts may leave this machine via {cfg.backend.base_url}"
+        )
     if synthetic:
         notes.append("synthetic timings from the in-process mock backend; not hardware inference")
 

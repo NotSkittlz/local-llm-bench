@@ -8,8 +8,11 @@ in this config is what we send, and what we record.
 
 from __future__ import annotations
 
+import ipaddress
+import socket
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -34,6 +37,8 @@ class BackendConfig(BaseModel):
     mock_prompt_eval_ns_per_token: int = 0
     # Optional PID whose RSS we sample as "backend process".
     pid: int | None = None
+    # Off-box URLs are refused unless the user opts in explicitly.
+    allow_remote: bool = False
 
     @field_validator("base_url")
     @classmethod
@@ -53,7 +58,7 @@ class BackendConfig(BaseModel):
             }[self.type]
             self.base_url = default
         if self.base_url:
-            _assert_local_url(self.base_url)
+            _assert_local_url(self.base_url, allow_remote=self.allow_remote)
         return self
 
 
@@ -140,35 +145,79 @@ class BenchConfig(BaseModel):
         return self
 
 
-_LOCAL_HOSTS = {
-    "127.0.0.1",
-    "localhost",
-    "::1",
-    "[::1]",
-    "0.0.0.0",
-}
+_ALLOWED_NETWORKS = (
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("fe80::/10"),
+)
 
 
-def _assert_local_url(url: str) -> None:
-    """Refuse non-local URLs. This tool does not call paid cloud APIs."""
-
-    from urllib.parse import urlparse
+def _assert_local_url(url: str, *, allow_remote: bool = False) -> None:
+    """Refuse non-local URLs unless ``allow_remote`` is set."""
 
     parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
     if parsed.scheme not in {"http", "https"}:
         raise ConfigError(f"backend URL must be http(s), got {url!r}")
-    if host in _LOCAL_HOSTS:
+    host = parsed.hostname
+    if not host:
+        raise ConfigError(f"backend URL has no host: {url!r}")
+    if allow_remote:
         return
-    # RFC1918 / link-local: user is still targeting their own LAN box.
-    if host.startswith("10.") or host.startswith("192.168.") or host.startswith("172."):
-        return
-    if host.endswith(".local"):
-        return
-    raise ConfigError(
-        f"refusing non-local backend URL {url!r}. "
-        "local-llm-bench only talks to endpoints you run (loopback, LAN, *.local)."
-    )
+    addresses = _resolve_host_ips(host)
+    public = [ip for ip in addresses if not _is_local_ip(ip)]
+    if public:
+        shown = ", ".join(str(ip) for ip in public)
+        raise ConfigError(
+            f"refusing non-local backend URL {url!r} (resolved {shown}). "
+            "Pass --allow-remote if you really intend to leave the machine."
+        )
+
+
+def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        return [_unwrap_mapped(literal)]
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise ConfigError(f"cannot resolve backend host {host!r}: {exc}") from exc
+    addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    seen: set[str] = set()
+    for info in infos:
+        sockaddr = info[4]
+        raw = sockaddr[0]
+        try:
+            ip = _unwrap_mapped(ipaddress.ip_address(raw))
+        except ValueError:
+            continue
+        key = str(ip)
+        if key in seen:
+            continue
+        seen.add(key)
+        addresses.append(ip)
+    if not addresses:
+        raise ConfigError(f"cannot resolve backend host {host!r} to an IP address")
+    return addresses
+
+
+def _unwrap_mapped(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
+def _is_local_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if ip.is_loopback or ip.is_unspecified:
+        return True
+    return any(ip in network for network in _ALLOWED_NETWORKS)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:

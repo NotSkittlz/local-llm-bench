@@ -77,6 +77,11 @@ def run(
     md_out: Path | None = typer.Option(None, "--md"),
     label: str | None = typer.Option(None, "--label"),
     quality: bool | None = typer.Option(None, "--quality/--no-quality"),
+    allow_remote: bool = typer.Option(
+        False,
+        "--allow-remote",
+        help="Permit a non-local backend URL (prompts will leave this machine).",
+    ),
 ) -> None:
     """Run a benchmark and write JSON/CSV/HTML."""
 
@@ -107,6 +112,8 @@ def run(
             overrides["output.label"] = label
         if quality is not None:
             overrides["quality.enabled"] = quality
+        if allow_remote:
+            overrides["backend.allow_remote"] = True
         cfg = apply_cli_overrides(cfg, overrides)
 
         json_path = json_out or (

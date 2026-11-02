@@ -52,6 +52,17 @@ def test_run_mock_writes_artifacts(tmp_path: Path) -> None:
     assert "cli-mock" in html
 
 
+def test_refuses_public_172_and_attacker_hostname() -> None:
+    for url in ("http://172.217.14.206", "http://10.attacker.com"):
+        result = runner.invoke(
+            app,
+            ["run", "--backend", "openai_compat", "--base-url", url, "--model", "x"],
+        )
+        assert result.exit_code == 1
+        blob = (result.output + (result.stderr or "")).lower()
+        assert "non-local" in blob or "cannot resolve" in blob
+
+
 def test_refuses_cloud_url() -> None:
     result = runner.invoke(
         app,
