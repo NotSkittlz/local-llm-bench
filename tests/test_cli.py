@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -93,12 +94,21 @@ def test_refuses_cloud_url() -> None:
     assert "non-local" in result.output.lower() or "non-local" in (result.stderr or "").lower()
 
 
-def test_quality_strict_flag_exists() -> None:
+def _plain_help(stdout: str) -> str:
+    """Strip ANSI and whitespace so 80-column Rich wrapping cannot hide flags."""
+
+    return re.sub(r"\s+", "", re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", stdout or ""))
+
+
+def test_quality_strict_flag_exists(monkeypatch) -> None:
+    monkeypatch.setenv("COLUMNS", "80")
+    monkeypatch.setenv("TERM", "dumb")
     help_run = runner.invoke(app, ["run", "--help"])
-    assert "--quality-strict" in help_run.stdout
-    assert "--timeout" in help_run.stdout
-    assert "--temperature" in help_run.stdout
-    assert "--thinking" in help_run.stdout
+    text = _plain_help(help_run.stdout)
+    assert "--quality-strict" in text
+    assert "--timeout" in text
+    assert "--temperature" in text
+    assert "--thinking" in text
     cfg = apply_cli_overrides(load_config(None), {"quality.strict": True})
     assert cfg.quality.strict is True
 

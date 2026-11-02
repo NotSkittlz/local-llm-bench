@@ -47,3 +47,5 @@ landed on PR #1 after adversarial review:
   `/props` `build_info` or `/version`; `model.context_length` from server
   n_ctx / num_ctx; decode mismatch flag suppressed below 16 output tokens.
 - README notes that speculative decoding makes decode tok/s prompt-dependent.
+- CLI help tests collapse whitespace so 80-column Rich wrapping cannot hide
+  flags on CI.
