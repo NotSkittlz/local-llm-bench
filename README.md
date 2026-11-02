@@ -72,7 +72,7 @@ The long version — clocks, token-count sources, thermal throttling, batching, 
 
 ## Supported backends
 
-Local HTTP only. Hosts are resolved and every address is checked (loopback, RFC1918, link-local, IPv6 ULA). Public IPs and prefix-trick hostnames like `10.attacker.com` are refused unless you pass `--allow-remote`.
+Local HTTP only. Hosts are resolved and every address is checked (loopback, RFC1918, IPv6 ULA). Link-local and cloud metadata (`169.254.169.254`, `fd00:ec2::254`, `metadata.google.internal`) are refused. Public IPs and prefix-trick hostnames like `10.attacker.com` are refused unless you pass `--allow-remote`.
 
 | `backend.type` | How we talk to it | Default URL |
 | --- | --- | --- |

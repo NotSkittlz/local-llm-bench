@@ -69,7 +69,9 @@ Prefill tok/s is **uncached** prompt tokens / **uncached** prompt milliseconds.
   uncached-only. We need `prompt_eval_cached_count` to form the uncached
   remainder. Without it, prefill is `null`.
 - vLLM typically has no prompt timings; prefill stays `null` unless a
-  per-request metrics object is present.
+  per-request metrics object is present. When `usage.prompt_tokens_details.cached_tokens`
+  is present, uncached prompt tokens are `prompt_tokens - cached_tokens`.
+  A cached/uncached count of `0` is kept (not treated as missing).
 
 If uncached tokens or uncached ms are missing or zero, prefill is `null`.
 We do **not** fall through to `prompt_tokens / TTFT` while labelling it
@@ -169,8 +171,12 @@ of the suite name. We do not use Python's salted `hash()`.
 
 Warmup is the prefix of one shuffled sequence (`warmup + iterations`);
 measured trials continue from that index rather than restarting at 0.
-Warmup rows are stored and discarded from summaries. Use it. Cold KV-cache
-and first-weight-load otherwise land in TTFT.
+If the sequence wraps past the suite size, wrapping occurrences get a
+unique prefix nonce so measured trials never replay warmup prompt bytes
+(default `short_chat` is 12 prompts; default `iterations=16` wraps).
+`long_context` is always cache-busted; the nonce includes run id, suite,
+concurrency, and trial index so a `[1, 4]` sweep is not a prefix-cache hit
+on the previous level. Warmup rows are stored and discarded from summaries.
 
 ## Sampling and reproducibility
 
@@ -217,7 +223,10 @@ memory sampling is a niced thread; `nvidia-smi` is rate-limited to 1 Hz.
 **Network.** "Local" still crosses the kernel. Loopback is not zero. The
 overhead probe does not include it. Backend URLs are resolved; every
 address must be loopback, RFC1918 (`10/8`, `172.16/12`, `192.168/16`),
-link-local, or IPv6 ULA. `--allow-remote` is the explicit opt-in.
+or IPv6 ULA. Link-local (`169.254/16`, `fe80::/10`) and cloud metadata
+(`169.254.169.254`, `fd00:ec2::254`, `metadata.google.internal`) are
+refused. `--allow-remote` is the explicit opt-in for other non-local
+hosts; metadata endpoints stay blocked.
 
 **Truncated streams.** An HTTP 200 body that ends without `[DONE]`,
 `finish_reason`, or Ollama `done: true` is `ok=false` with

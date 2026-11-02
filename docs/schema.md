@@ -35,7 +35,8 @@ Prefill: `prefill_tps` is uncached-only server timing. `prefill_tps_proxy`
 is `prompt_tokens / TTFT`. `prefill_source` is `server_uncached` or
 `proxy_ttft`. Summaries never mix them. `server_timings` includes
 `cached_prompt_tokens`, `uncached_prompt_tokens`, `uncached_prompt_ms`,
-and `cache_hit`.
+and `cache_hit`. vLLM `usage.prompt_tokens_details.cached_tokens` is
+mapped onto `cached_prompt_tokens` when present.
 
 A truncated HTTP 200 stream (no `[DONE]` / `finish_reason` / `done`) is
 `ok=false`, `error_kind=truncated`. `reasoning_tokens` are counted

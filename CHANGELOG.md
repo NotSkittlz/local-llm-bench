@@ -14,3 +14,9 @@ landed on PR #1 after adversarial review:
 - Concurrency charts are one series per suite; `max_tokens` is per-trial.
 - `os.nice` is Linux-only; `--quality-strict` exists on the CLI.
 - HTML theme a11y, captured stream fixtures, Python 3.13 CI.
+- Wrapped suite prompts are cache-busted so default n=16 cannot replay warmup IDs.
+- Cache-bust nonce includes concurrency and run id (no `[1, 4]` prefix replay).
+- Link-local and cloud metadata URLs (`169.254.169.254`, `fd00:ec2::254`,
+  `metadata.google.internal`) are refused.
+- vLLM `usage.prompt_tokens_details.cached_tokens` drives uncached prefill;
+  a cached count of 0 is not treated as missing.
