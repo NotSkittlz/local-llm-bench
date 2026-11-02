@@ -16,6 +16,7 @@ import httpx
 from llmbench.backends.base import CompletionRequest, StreamResult
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
 
 
@@ -73,22 +74,12 @@ class OllamaBackend:
         )
 
     async def complete(self, request: CompletionRequest) -> StreamResult:
-        s = request.sampling
-        options: dict[str, Any] = {
-            "temperature": s.temperature,
-            "top_p": s.top_p,
-            "num_predict": s.max_tokens,
-            "seed": s.seed,
-        }
-        if s.top_k is not None:
-            options["top_k"] = s.top_k
-        if s.repeat_penalty is not None:
-            options["repeat_penalty"] = s.repeat_penalty
+        wire = map_sampling("ollama", request.sampling, context_length=request.context_length)
         payload = {
             "model": self.config.model,
             "messages": [{"role": "user", "content": request.prompt}],
             "stream": True,
-            "options": options,
+            "options": wire.ollama_options,
         }
         start_ns = time.perf_counter_ns()
         first_byte_ns: int | None = None

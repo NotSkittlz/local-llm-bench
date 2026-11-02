@@ -32,11 +32,12 @@ class PercentileSummary(BaseModel):
 
 
 class SamplingParams(BaseModel):
-    """Exact sampling configuration sent to the backend.
+    """Requested sampling configuration and an audit of what went on the wire.
 
-    The harness never silently rewrites these for a speed run. A quality
-    probe uses a *separate* request with greedy settings and is recorded
-    under ``quality``, not here.
+    The harness never silently rewrites temperature / max_tokens for a speed
+    run. Flavor-specific names are mapped (vLLM ``repetition_penalty``);
+    fields a backend will ignore are listed in ``dropped`` rather than
+    displayed as applied. A quality probe uses a *separate* request.
     """
 
     temperature: float = 0.0
@@ -47,12 +48,16 @@ class SamplingParams(BaseModel):
     seed: int = 42
     max_tokens: int = 128
     stop: list[str] = Field(default_factory=list)
+    applied: dict[str, Any] = Field(default_factory=dict)
+    dropped: list[str] = Field(default_factory=list)
 
 
 class ModelInfo(BaseModel):
     name: str
     quantization: str | None = None
+    quantization_source: Literal["user_declared"] | None = None
     context_length: int | None = None
+    context_length_source: Literal["user_declared", "applied_num_ctx"] | None = None
     family: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 

@@ -25,6 +25,8 @@ class CompletionRequest:
     collect_text: bool = False
     record_inter_token: bool = False
     prompt_id: str = ""
+    context_length: int | None = None
+    flavor: str = "openai_compat"
 
 
 @dataclass(slots=True)

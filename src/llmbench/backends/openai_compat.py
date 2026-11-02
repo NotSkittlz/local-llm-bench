@@ -19,6 +19,7 @@ from llmbench.backends.base import CompletionRequest, StreamResult
 from llmbench.backends.sse import feed_sse, flush_sse
 from llmbench.config import BackendConfig
 from llmbench.exceptions import BackendConnectionError, BackendTimeoutError
+from llmbench.sampling import map_sampling
 from llmbench.schema import BackendInfo, ServerTimings
 
 Flavor = Literal["openai_compat", "llamacpp", "vllm"]
@@ -89,7 +90,7 @@ class OpenAICompatBackend:
         )
 
     async def complete(self, request: CompletionRequest) -> StreamResult:
-        payload = _chat_payload(self.config.model, request)
+        payload = _chat_payload(self.config.model, request, flavor=self.flavor)
         start_ns = time.perf_counter_ns()
         first_byte_ns: int | None = None
         first_token_ns: int | None = None
@@ -190,26 +191,16 @@ def _headers(config: BackendConfig) -> dict[str, str]:
     return headers
 
 
-def _chat_payload(model: str, request: CompletionRequest) -> dict[str, Any]:
-    s = request.sampling
+def _chat_payload(
+    model: str, request: CompletionRequest, *, flavor: Flavor = "openai_compat"
+) -> dict[str, Any]:
+    wire = map_sampling(flavor, request.sampling, context_length=request.context_length)
     payload: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": request.prompt}],
         "stream": True,
-        "temperature": s.temperature,
-        "top_p": s.top_p,
-        "max_tokens": s.max_tokens,
-        "seed": s.seed,
-        "stream_options": {"include_usage": True},
+        **wire.openai_body,
     }
-    if s.top_k is not None:
-        payload["top_k"] = s.top_k
-    if s.min_p is not None:
-        payload["min_p"] = s.min_p
-    if s.repeat_penalty is not None:
-        payload["repeat_penalty"] = s.repeat_penalty
-    if s.stop:
-        payload["stop"] = s.stop
     return payload
 
 

@@ -25,6 +25,7 @@ from llmbench.memory import MemorySampler
 from llmbench.metrics import fill_trial_derived, summarize
 from llmbench.overhead import measure_harness_overhead
 from llmbench.quality import run_quality_probe
+from llmbench.sampling import map_sampling
 from llmbench.schema import (
     BackendInfo,
     HarnessInfo,
@@ -136,10 +137,35 @@ async def run_benchmark(
     if synthetic:
         notes.append("synthetic timings from the in-process mock backend; not hardware inference")
 
+    flavor = cfg.backend.type
+    wire = map_sampling(flavor, cfg.sampling, context_length=cfg.model.context_length)
+    sampling_snap = cfg.sampling.model_copy(deep=True)
+    sampling_snap.applied = dict(wire.applied)
+    sampling_snap.dropped = list(wire.dropped)
+    for w in wire.warnings:
+        if w not in warnings:
+            warnings.append(w)
+
+    q_source = "user_declared" if cfg.model.quantization else None
+    if cfg.model.quantization:
+        notes.append(
+            "quantization is user-declared metadata; the harness does not load or quantize weights"
+        )
+    if cfg.backend.type == "ollama" and cfg.model.context_length is not None:
+        ctx_source: str | None = "applied_num_ctx"
+        notes.append("context_length sent as Ollama options.num_ctx")
+    elif cfg.model.context_length is not None:
+        ctx_source = "user_declared"
+        notes.append("context_length is user-declared metadata; not sent as a server argument")
+    else:
+        ctx_source = None
+
     model = ModelInfo(
         name=cfg.model.name or cfg.backend.model,
         quantization=cfg.model.quantization,
+        quantization_source=q_source,  # type: ignore[arg-type]
         context_length=cfg.model.context_length,
+        context_length_source=ctx_source,  # type: ignore[arg-type]
         family=cfg.model.family,
     )
 
@@ -163,7 +189,7 @@ async def run_benchmark(
             quality_enabled=cfg.quality.enabled,
             collect_output_text=cfg.collect_output_text,
         ),
-        sampling=cfg.sampling,
+        sampling=sampling_snap,
         model=model,
         backend=backend_info,
         hardware=hardware,
@@ -307,6 +333,8 @@ async def _one_trial(
         collect_text=cfg.collect_output_text,
         record_inter_token=cfg.record_inter_token,
         prompt_id=prompt.prompt_id,
+        context_length=cfg.model.context_length,
+        flavor=cfg.backend.type,
     )
     try:
         result: StreamResult = await backend.complete(request)

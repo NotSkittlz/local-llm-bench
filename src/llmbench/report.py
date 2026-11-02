@@ -156,12 +156,21 @@ def _hardware_section(runs: list[RunResult]) -> str:
             ("OS", f"{hw.os} {hw.arch}"),
             ("Backend", f"{run.backend.type} {run.backend.version or ''}".strip()),
             ("Model", run.model.name),
-            ("Quantization", run.model.quantization or "—"),
-            ("Context", str(run.model.context_length or "—")),
+            (
+                "Quantization",
+                _declared(run.model.quantization, run.model.quantization_source),
+            ),
+            (
+                "Context",
+                _declared(run.model.context_length, run.model.context_length_source),
+            ),
             (
                 "Sampling",
                 f"T={run.sampling.temperature} top_p={run.sampling.top_p} "
-                f"max_tokens={run.sampling.max_tokens} seed={run.sampling.seed}",
+                f"max_tokens={run.sampling.max_tokens} seed={run.sampling.seed}"
+                + (
+                    f" (dropped: {', '.join(run.sampling.dropped)})" if run.sampling.dropped else ""
+                ),
             ),
         ]
         blocks.append("<dl class='kv'>")
@@ -458,6 +467,16 @@ def _markdown_compare(runs: list[RunResult]) -> list[str]:
                 vals.append(_n(fn(s) if s else None))
             lines.append(f"| {key[0]} | {key[1]} | {label} | " + " | ".join(vals) + " |")
     return lines
+
+
+def _declared(value: object, source: str | None) -> str:
+    if value is None:
+        return "—"
+    if source == "applied_num_ctx":
+        return f"{value} (sent as num_ctx)"
+    if source == "user_declared":
+        return f"{value} (user-declared, not applied)"
+    return str(value)
 
 
 def _fmt_overhead(ms: float) -> str:
