@@ -61,12 +61,24 @@ completion has no decode rate (`null`, not `0`).
 
 ### Prefill tokens / second
 
-1. Prefer `server_timings.prompt_tokens / server_timings.prompt_ms`.
-2. Otherwise the **proxy** `prompt_tokens / TTFT`.
+Prefill tok/s is **uncached** prompt tokens / **uncached** prompt milliseconds.
 
-The proxy over-states prefill work because TTFT is not only prefill. The
-report and JSON field notes make that visible. Do not compare proxy prefill
-across backends that do not expose prompt timings.
+- llama.cpp: `prompt_n` / `prompt_ms` are uncached; `cache_n` is stored as
+  `cached_prompt_tokens` and is not in the rate.
+- Ollama: `prompt_eval_count` is all tokens; `prompt_eval_duration` is
+  uncached-only. We need `prompt_eval_cached_count` to form the uncached
+  remainder. Without it, prefill is `null`.
+- vLLM typically has no prompt timings; prefill stays `null` unless a
+  per-request metrics object is present.
+
+If uncached tokens or uncached ms are missing or zero, prefill is `null`.
+We do **not** fall through to `prompt_tokens / TTFT` while labelling it
+server prefill. That proxy is stored as `prefill_tps_proxy` and summarised
+separately. Percentiles never mix the two.
+
+`long_context` trials get a unique prefix nonce so later measured trials
+are not prefix-cache hits on the same body. Cache hits that still happen
+are counted on the suite summary.
 
 ### End-to-end latency
 
@@ -139,6 +151,7 @@ The probe **does not** rewrite sampling parameters of the timed suites.
 Whatever you set for the speed run is what is sent and what is recorded.
 
 `--quality-strict` / `quality.strict: true` aborts the run if the probe fails.
+The default Paris substring is a smoke test, not a quantization audit.
 
 The mock backend answers the default France prompt with `Paris` so demos
 exercise a passing probe. That is not a claim about any real model.
@@ -154,8 +167,10 @@ exercise a passing probe. That is not a claim about any real model.
 Prompt order is shuffled with `random.Random(seed)` plus a **stable** SHA-256
 of the suite name. We do not use Python's salted `hash()`.
 
-Warmup uses the same pool, sequential, discarded from summaries. Use it.
-Cold KV-cache and first-weight-load otherwise land in TTFT.
+Warmup is the prefix of one shuffled sequence (`warmup + iterations`);
+measured trials continue from that index rather than restarting at 0.
+Warmup rows are stored and discarded from summaries. Use it. Cold KV-cache
+and first-weight-load otherwise land in TTFT.
 
 ## Sampling and reproducibility
 
@@ -163,9 +178,11 @@ Defaults are greedy (`temperature=0`, `top_p=1`, `seed=42`) so token counts
 are stable enough to compare machines. That is a documented default, not a
 silent rewrite: if you set `temperature: 0.8` in YAML, that is what we send.
 
-Recorded on every run: temperature, top_p, top_k, min_p, repeat_penalty,
-seed, max_tokens, stop, quantization, context length, backend type/version,
-model id.
+Recorded on every run: requested sampling, `sampling.applied` (what went
+on the wire, including vLLM `repetition_penalty` and Ollama `num_ctx`),
+`sampling.dropped`, per-trial `max_tokens` and the min–max range,
+quantization / context_length with a `*_source` of `user_declared` or
+`applied_num_ctx`, backend type/version, model id.
 
 Two runs are comparable only if those fields match. `llmbench compare`
 aligns by suite name and concurrency; it will not pretend mismatched
@@ -198,7 +215,13 @@ request loop would move the numbers. The hot path timestamps and parses;
 memory sampling is a niced thread; `nvidia-smi` is rate-limited to 1 Hz.
 
 **Network.** "Local" still crosses the kernel. Loopback is not zero. The
-overhead probe does not include it.
+overhead probe does not include it. Backend URLs are resolved; every
+address must be loopback, RFC1918 (`10/8`, `172.16/12`, `192.168/16`),
+link-local, or IPv6 ULA. `--allow-remote` is the explicit opt-in.
+
+**Truncated streams.** An HTTP 200 body that ends without `[DONE]`,
+`finish_reason`, or Ollama `done: true` is `ok=false` with
+`error_kind=truncated` and is excluded from percentiles.
 
 **Power / clocks.** We do not pin GPU clocks or disable boost. Two runs on
 the same box can differ. Say so in the README you paste.
@@ -206,7 +229,7 @@ the same box can differ. Say so in the README you paste.
 ## What this tool does not measure
 
 - Training, fine-tuning, or embeddings
-- Paid cloud APIs (non-local URLs are rejected)
+- Paid cloud APIs (non-local URLs are rejected unless `--allow-remote`)
 - Quality beyond the small greedy probe
 - Per-layer GPU kernels
 - Energy (joules) in v0.1

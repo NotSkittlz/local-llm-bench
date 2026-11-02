@@ -20,7 +20,7 @@ ruff format src tests
 pytest
 ```
 
-CI runs the same three commands on GitHub-hosted runners.
+CI runs the same three commands on GitHub-hosted runners (Python 3.11, 3.12, 3.13).
 
 ## Measurement rules
 

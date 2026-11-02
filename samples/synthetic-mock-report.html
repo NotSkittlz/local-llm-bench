@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,11 +10,11 @@
       --sans: "IBM Plex Sans", "Source Sans 3", "Segoe UI", sans-serif;
       --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
     }
-    html[data-theme="dark"] {
+    :root, html[data-theme="dark"] {
       --bg: #12110f;
       --bg-2: #1c1a17;
       --ink: #ece6dc;
-      --muted: #a39a8c;
+      --muted: #c2b8a8;
       --line: #2e2a25;
       --accent: #e07a5f;
       --accent-2: #81b0c7;
@@ -23,11 +23,26 @@
       --bad: #d67b7b;
       --banner: #3a2a1c;
     }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme]) {
+        --bg: #f3efe6;
+        --bg-2: #fffaf1;
+        --ink: #1a1714;
+        --muted: #4f4942;
+        --line: #ddd4c6;
+        --accent: #9c2f2f;
+        --accent-2: #2c4a6e;
+        --accent-3: #8a5a12;
+        --good: #2f5d3a;
+        --bad: #8f2d2d;
+        --banner: #f3e0c8;
+      }
+    }
     html[data-theme="light"] {
       --bg: #f3efe6;
       --bg-2: #fffaf1;
       --ink: #1a1714;
-      --muted: #6b645c;
+      --muted: #4f4942;
       --line: #ddd4c6;
       --accent: #9c2f2f;
       --accent-2: #2c4a6e;
@@ -99,7 +114,7 @@
       padding: 14px 16px;
     }
     .tile .k {
-      font-size: 11px;
+      font-size: 12px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
@@ -145,7 +160,8 @@
       border-bottom: 1px solid var(--line);
       vertical-align: top;
     }
-    th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+    caption { caption-side: top; text-align: left; color: var(--muted); font-size: 12px; padding: 0 0 8px; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
     td.num, th.num { text-align: right; font-family: var(--mono); }
     .ok { color: var(--good); }
     .bad { color: var(--bad); }
@@ -176,9 +192,9 @@
     <div>
       <div class="brand">local-llm-bench · v0.1.0</div>
       <h1>Run report</h1>
-      <div class="sub">synthetic-mock · mock · 2026-11-02T05:20:39.094440+00:00</div>
+      <div class="sub">synthetic-mock · mock · 2026-11-02T05:57:05.272174+00:00</div>
     </div>
-    <button class="theme" type="button" id="theme-btn">Light</button>
+    <button class="theme" type="button" id="theme-btn" aria-label="Switch to light theme" aria-pressed="true">Light</button>
   </header>
 
   
@@ -190,27 +206,32 @@
   
 
   
+  <div class="banner" role="status">
+    <strong>Warnings.</strong>
+    <ul class="notes"><li>context_length is user-declared metadata; the mock backend does not apply it</li></ul>
+  </div>
+  
 
   <section class="hero">
     
     <div class="tile">
       <div class="k">TTFT p50</div>
-      <div class="v">40.15 <span class="u">ms</span></div>
+      <div class="v">40.16 <span class="u">ms</span></div>
     </div>
     
     <div class="tile">
       <div class="k">TTFT p95</div>
-      <div class="v">40.19 <span class="u">ms</span></div>
+      <div class="v">40.21 <span class="u">ms</span></div>
     </div>
     
     <div class="tile">
       <div class="k">Decode p50</div>
-      <div class="v">122.4 <span class="u">tok/s</span></div>
+      <div class="v">122.1 <span class="u">tok/s</span></div>
     </div>
     
     <div class="tile">
       <div class="k">E2E p50</div>
-      <div class="v">293.5 <span class="u">ms</span></div>
+      <div class="v">294.0 <span class="u">ms</span></div>
     </div>
     
     <div class="tile">
@@ -220,7 +241,7 @@
     
     <div class="tile">
       <div class="k">Harness TTFT floor</div>
-      <div class="v">0.50 <span class="u">µs</span></div>
+      <div class="v">0.71 <span class="u">µs</span></div>
     </div>
     
   </section>
@@ -235,9 +256,9 @@
 <div><dt>OS</dt><dd>Linux x86_64</dd></div>
 <div><dt>Backend</dt><dd>mock mock-0.1</dd></div>
 <div><dt>Model</dt><dd>mock-7b</dd></div>
-<div><dt>Quantization</dt><dd>Q4_K_M</dd></div>
-<div><dt>Context</dt><dd>8192</dd></div>
-<div><dt>Sampling</dt><dd>T=0.0 top_p=1.0 max_tokens=128 seed=42</dd></div>
+<div><dt>Quantization</dt><dd>Q4_K_M (user-declared, not applied)</dd></div>
+<div><dt>Context</dt><dd>8192 (user-declared, not applied)</dd></div>
+<div><dt>Sampling</dt><dd>T=0.0 top_p=1.0 max_tokens=32-256 seed=42 (dropped: context_length)</dd></div>
 </dl>
 </div>
   <h2>Quality probe</h2>
@@ -252,246 +273,267 @@
 <svg class="chart" viewBox="0 0 720 280" role="img" aria-label="TTFT p50">
 <text class="chart-title" x="56" y="18">TTFT p50</text>
 <text class="chart-unit" x="56" y="32">ms</text>
-<line class="grid" x1="56" x2="704" y1="232.0" y2="232.0" />
-<text class="tick" x="48" y="236.0" text-anchor="end">0.00</text>
-<line class="grid" x1="56" x2="704" y1="183.0" y2="183.0" />
-<text class="tick" x="48" y="187.0" text-anchor="end">11.6</text>
-<line class="grid" x1="56" x2="704" y1="134.0" y2="134.0" />
-<text class="tick" x="48" y="138.0" text-anchor="end">23.2</text>
-<line class="grid" x1="56" x2="704" y1="85.0" y2="85.0" />
-<text class="tick" x="48" y="89.0" text-anchor="end">34.7</text>
+<line class="grid" x1="56" x2="704" y1="224.0" y2="224.0" />
+<text class="tick" x="48" y="228.0" text-anchor="end">0.00</text>
+<line class="grid" x1="56" x2="704" y1="177.0" y2="177.0" />
+<text class="tick" x="48" y="181.0" text-anchor="end">11.6</text>
+<line class="grid" x1="56" x2="704" y1="130.0" y2="130.0" />
+<text class="tick" x="48" y="134.0" text-anchor="end">23.2</text>
+<line class="grid" x1="56" x2="704" y1="83.0" y2="83.0" />
+<text class="tick" x="48" y="87.0" text-anchor="end">34.8</text>
 <line class="grid" x1="56" x2="704" y1="36.0" y2="36.0" />
-<text class="tick" x="48" y="40.0" text-anchor="end">46.3</text>
+<text class="tick" x="48" y="40.0" text-anchor="end">46.4</text>
 <text class="tick cat" x="110.0" y="266" text-anchor="middle">short_chat c=1</text>
-<rect class="bar bar-0" x="92.0" y="62.1" width="36.0" height="169.9"><title>p50 · short_chat c=1: 40.1 ms</title></rect>
+<rect class="bar bar-0" x="92.0" y="61.1" width="36.0" height="162.9"><title>p50 · short_chat c=1: 40.2 ms</title></rect>
 <text class="tick cat" x="218.0" y="266" text-anchor="middle">short_chat c=4</text>
-<rect class="bar bar-0" x="200.0" y="61.6" width="36.0" height="170.4"><title>p50 · short_chat c=4: 40.3 ms</title></rect>
+<rect class="bar bar-0" x="200.0" y="60.6" width="36.0" height="163.4"><title>p50 · short_chat c=4: 40.3 ms</title></rect>
 <text class="tick cat" x="326.0" y="266" text-anchor="middle">code c=1</text>
-<rect class="bar bar-0" x="308.0" y="62.0" width="36.0" height="170.0"><title>p50 · code c=1: 40.1 ms</title></rect>
+<rect class="bar bar-0" x="308.0" y="61.1" width="36.0" height="162.9"><title>p50 · code c=1: 40.2 ms</title></rect>
 <text class="tick cat" x="434.0" y="266" text-anchor="middle">code c=4</text>
-<rect class="bar bar-0" x="416.0" y="61.6" width="36.0" height="170.4"><title>p50 · code c=4: 40.3 ms</title></rect>
+<rect class="bar bar-0" x="416.0" y="60.9" width="36.0" height="163.1"><title>p50 · code c=4: 40.2 ms</title></rect>
 <text class="tick cat" x="542.0" y="266" text-anchor="middle">long_context c=1</text>
-<rect class="bar bar-0" x="524.0" y="62.0" width="36.0" height="170.0"><title>p50 · long_context c=1: 40.2 ms</title></rect>
+<rect class="bar bar-0" x="524.0" y="60.7" width="36.0" height="163.3"><title>p50 · long_context c=1: 40.3 ms</title></rect>
 <text class="tick cat" x="650.0" y="266" text-anchor="middle">long_context c=4</text>
-<rect class="bar bar-0" x="632.0" y="61.6" width="36.0" height="170.4"><title>p50 · long_context c=4: 40.3 ms</title></rect>
+<rect class="bar bar-0" x="632.0" y="60.5" width="36.0" height="163.5"><title>p50 · long_context c=4: 40.3 ms</title></rect>
 </svg>
 <svg class="chart" viewBox="0 0 720 280" role="img" aria-label="Decode throughput p50">
 <text class="chart-title" x="56" y="18">Decode throughput p50</text>
 <text class="chart-unit" x="56" y="32">tok/s</text>
-<line class="grid" x1="56" x2="704" y1="232.0" y2="232.0" />
-<text class="tick" x="48" y="236.0" text-anchor="end">0.00</text>
-<line class="grid" x1="56" x2="704" y1="183.0" y2="183.0" />
-<text class="tick" x="48" y="187.0" text-anchor="end">35.2</text>
-<line class="grid" x1="56" x2="704" y1="134.0" y2="134.0" />
-<text class="tick" x="48" y="138.0" text-anchor="end">70.4</text>
-<line class="grid" x1="56" x2="704" y1="85.0" y2="85.0" />
-<text class="tick" x="48" y="89.0" text-anchor="end">106</text>
+<line class="grid" x1="56" x2="704" y1="224.0" y2="224.0" />
+<text class="tick" x="48" y="228.0" text-anchor="end">0.00</text>
+<line class="grid" x1="56" x2="704" y1="177.0" y2="177.0" />
+<text class="tick" x="48" y="181.0" text-anchor="end">35.2</text>
+<line class="grid" x1="56" x2="704" y1="130.0" y2="130.0" />
+<text class="tick" x="48" y="134.0" text-anchor="end">70.3</text>
+<line class="grid" x1="56" x2="704" y1="83.0" y2="83.0" />
+<text class="tick" x="48" y="87.0" text-anchor="end">105</text>
 <line class="grid" x1="56" x2="704" y1="36.0" y2="36.0" />
 <text class="tick" x="48" y="40.0" text-anchor="end">141</text>
 <text class="tick cat" x="110.0" y="266" text-anchor="middle">short_chat c=1</text>
-<rect class="bar bar-0" x="92.0" y="61.7" width="36.0" height="170.3"><title>p50 · short_chat c=1: 122 tok/s</title></rect>
+<rect class="bar bar-0" x="92.0" y="60.7" width="36.0" height="163.3"><title>p50 · short_chat c=1: 122 tok/s</title></rect>
 <text class="tick cat" x="218.0" y="266" text-anchor="middle">short_chat c=4</text>
-<rect class="bar bar-0" x="200.0" y="63.1" width="36.0" height="168.9"><title>p50 · short_chat c=4: 121 tok/s</title></rect>
+<rect class="bar bar-0" x="200.0" y="61.4" width="36.0" height="162.6"><title>p50 · short_chat c=4: 122 tok/s</title></rect>
 <text class="tick cat" x="326.0" y="266" text-anchor="middle">code c=1</text>
-<rect class="bar bar-0" x="308.0" y="61.6" width="36.0" height="170.4"><title>p50 · code c=1: 122 tok/s</title></rect>
+<rect class="bar bar-0" x="308.0" y="60.5" width="36.0" height="163.5"><title>p50 · code c=1: 122 tok/s</title></rect>
 <text class="tick cat" x="434.0" y="266" text-anchor="middle">code c=4</text>
-<rect class="bar bar-0" x="416.0" y="62.7" width="36.0" height="169.3"><title>p50 · code c=4: 122 tok/s</title></rect>
+<rect class="bar bar-0" x="416.0" y="61.6" width="36.0" height="162.4"><title>p50 · code c=4: 121 tok/s</title></rect>
 <text class="tick cat" x="542.0" y="266" text-anchor="middle">long_context c=1</text>
-<rect class="bar bar-0" x="524.0" y="62.0" width="36.0" height="170.0"><title>p50 · long_context c=1: 122 tok/s</title></rect>
+<rect class="bar bar-0" x="524.0" y="60.6" width="36.0" height="163.4"><title>p50 · long_context c=1: 122 tok/s</title></rect>
 <text class="tick cat" x="650.0" y="266" text-anchor="middle">long_context c=4</text>
-<rect class="bar bar-0" x="632.0" y="63.2" width="36.0" height="168.8"><title>p50 · long_context c=4: 121 tok/s</title></rect>
+<rect class="bar bar-0" x="632.0" y="61.5" width="36.0" height="162.5"><title>p50 · long_context c=4: 122 tok/s</title></rect>
 </svg>
 <svg class="chart" viewBox="0 0 720 280" role="img" aria-label="End-to-end p95">
 <text class="chart-title" x="56" y="18">End-to-end p95</text>
 <text class="chart-unit" x="56" y="32">ms</text>
-<line class="grid" x1="56" x2="704" y1="232.0" y2="232.0" />
-<text class="tick" x="48" y="236.0" text-anchor="end">0.00</text>
-<line class="grid" x1="56" x2="704" y1="183.0" y2="183.0" />
-<text class="tick" x="48" y="187.0" text-anchor="end">85.5</text>
-<line class="grid" x1="56" x2="704" y1="134.0" y2="134.0" />
-<text class="tick" x="48" y="138.0" text-anchor="end">171</text>
-<line class="grid" x1="56" x2="704" y1="85.0" y2="85.0" />
-<text class="tick" x="48" y="89.0" text-anchor="end">256</text>
+<line class="grid" x1="56" x2="704" y1="224.0" y2="224.0" />
+<text class="tick" x="48" y="228.0" text-anchor="end">0.00</text>
+<line class="grid" x1="56" x2="704" y1="177.0" y2="177.0" />
+<text class="tick" x="48" y="181.0" text-anchor="end">85.1</text>
+<line class="grid" x1="56" x2="704" y1="130.0" y2="130.0" />
+<text class="tick" x="48" y="134.0" text-anchor="end">170</text>
+<line class="grid" x1="56" x2="704" y1="83.0" y2="83.0" />
+<text class="tick" x="48" y="87.0" text-anchor="end">255</text>
 <line class="grid" x1="56" x2="704" y1="36.0" y2="36.0" />
-<text class="tick" x="48" y="40.0" text-anchor="end">342</text>
+<text class="tick" x="48" y="40.0" text-anchor="end">340</text>
 <text class="tick cat" x="110.0" y="266" text-anchor="middle">short_chat c=1</text>
-<rect class="bar bar-0" x="92.0" y="63.2" width="36.0" height="168.8"><title>p95 · short_chat c=1: 294 ms</title></rect>
+<rect class="bar bar-0" x="92.0" y="61.2" width="36.0" height="162.8"><title>p95 · short_chat c=1: 295 ms</title></rect>
 <text class="tick cat" x="218.0" y="266" text-anchor="middle">short_chat c=4</text>
-<rect class="bar bar-0" x="200.0" y="62.3" width="36.0" height="169.7"><title>p95 · short_chat c=4: 296 ms</title></rect>
+<rect class="bar bar-0" x="200.0" y="60.6" width="36.0" height="163.4"><title>p95 · short_chat c=4: 296 ms</title></rect>
 <text class="tick cat" x="326.0" y="266" text-anchor="middle">code c=1</text>
-<rect class="bar bar-0" x="308.0" y="63.5" width="36.0" height="168.5"><title>p95 · code c=1: 294 ms</title></rect>
+<rect class="bar bar-0" x="308.0" y="61.4" width="36.0" height="162.6"><title>p95 · code c=1: 294 ms</title></rect>
 <text class="tick cat" x="434.0" y="266" text-anchor="middle">code c=4</text>
-<rect class="bar bar-0" x="416.0" y="62.5" width="36.0" height="169.5"><title>p95 · code c=4: 296 ms</title></rect>
+<rect class="bar bar-0" x="416.0" y="60.5" width="36.0" height="163.5"><title>p95 · code c=4: 296 ms</title></rect>
 <text class="tick cat" x="542.0" y="266" text-anchor="middle">long_context c=1</text>
-<rect class="bar bar-0" x="524.0" y="63.1" width="36.0" height="168.9"><title>p95 · long_context c=1: 295 ms</title></rect>
+<rect class="bar bar-0" x="524.0" y="61.6" width="36.0" height="162.4"><title>p95 · long_context c=1: 294 ms</title></rect>
 <text class="tick cat" x="650.0" y="266" text-anchor="middle">long_context c=4</text>
-<rect class="bar bar-0" x="632.0" y="61.6" width="36.0" height="170.4"><title>p95 · long_context c=4: 297 ms</title></rect>
+<rect class="bar bar-0" x="632.0" y="60.8" width="36.0" height="163.2"><title>p95 · long_context c=4: 296 ms</title></rect>
 </svg>
-<svg class="chart" viewBox="0 0 720 280" role="img" aria-label="Output tok/s vs concurrency (wall-clock)">
-<text class="chart-title" x="56" y="18">Output tok/s vs concurrency (wall-clock)</text>
+<svg class="chart" viewBox="0 0 720 280" role="img" aria-label="Output tok/s vs concurrency (wall-clock, per suite)">
+<text class="chart-title" x="56" y="18">Output tok/s vs concurrency (wall-clock, per suite)</text>
 <text class="chart-unit" x="56" y="32">tok/s</text>
-<line class="grid" x1="56" x2="704" y1="232.0" y2="232.0" />
-<text class="tick" x="48" y="236.0" text-anchor="end">0.00</text>
-<line class="grid" x1="56" x2="704" y1="183.0" y2="183.0" />
-<text class="tick" x="48" y="187.0" text-anchor="end">124</text>
-<line class="grid" x1="56" x2="704" y1="134.0" y2="134.0" />
-<text class="tick" x="48" y="138.0" text-anchor="end">248</text>
-<line class="grid" x1="56" x2="704" y1="85.0" y2="85.0" />
-<text class="tick" x="48" y="89.0" text-anchor="end">372</text>
+<line class="grid" x1="56" x2="704" y1="224.0" y2="224.0" />
+<text class="tick" x="48" y="228.0" text-anchor="end">0.00</text>
+<line class="grid" x1="56" x2="704" y1="177.0" y2="177.0" />
+<text class="tick" x="48" y="181.0" text-anchor="end">124</text>
+<line class="grid" x1="56" x2="704" y1="130.0" y2="130.0" />
+<text class="tick" x="48" y="134.0" text-anchor="end">249</text>
+<line class="grid" x1="56" x2="704" y1="83.0" y2="83.0" />
+<text class="tick" x="48" y="87.0" text-anchor="end">373</text>
 <line class="grid" x1="56" x2="704" y1="36.0" y2="36.0" />
 <text class="tick" x="48" y="40.0" text-anchor="end">497</text>
 <text class="tick cat" x="218.0" y="266" text-anchor="middle">1</text>
-<rect class="bar bar-0" x="200.0" y="189.1" width="36.0" height="42.9"><title>throughput · 1: 109 tok/s</title></rect>
+<rect class="bar bar-0" x="164.0" y="182.9" width="36.0" height="41.1"><title>short_chat · 1: 109 tok/s</title></rect>
+<rect class="bar bar-1" x="200.0" y="182.9" width="36.0" height="41.1"><title>code · 1: 109 tok/s</title></rect>
+<rect class="bar bar-2" x="236.0" y="182.9" width="36.0" height="41.1"><title>long_context · 1: 109 tok/s</title></rect>
 <text class="tick cat" x="542.0" y="266" text-anchor="middle">4</text>
-<rect class="bar bar-0" x="524.0" y="61.6" width="36.0" height="170.4"><title>throughput · 4: 432 tok/s</title></rect>
+<rect class="bar bar-0" x="488.0" y="60.6" width="36.0" height="163.4"><title>short_chat · 4: 432 tok/s</title></rect>
+<rect class="bar bar-1" x="524.0" y="60.6" width="36.0" height="163.4"><title>code · 4: 432 tok/s</title></rect>
+<rect class="bar bar-2" x="560.0" y="60.5" width="36.0" height="163.5"><title>long_context · 4: 433 tok/s</title></rect>
+<rect class="bar bar-0" x="56" y="272" width="8" height="8" />
+<text class="legend" x="68" y="279">short_chat</text>
+<rect class="bar bar-1" x="172" y="272" width="8" height="8" />
+<text class="legend" x="184" y="279">code</text>
+<rect class="bar bar-2" x="240" y="272" width="8" height="8" />
+<text class="legend" x="252" y="279">long_context</text>
 </svg>
   <h2>Summaries</h2>
 <table>
+<caption>Measured suite summaries (warmup excluded)</caption>
 <thead><tr>
-<th>Run</th><th>Suite</th><th>Conc</th><th class='num'>n</th><th class='num'>TTFT p50</th><th class='num'>TTFT p95</th><th class='num'>Decode p50</th><th class='num'>Prefill p50†</th><th class='num'>E2E p50</th><th class='num'>E2E p95</th><th class='num'>Tok/s wall</th>
+<th>Run</th><th>Suite</th><th>Conc</th><th class='num'>n</th><th class='num'>TTFT p50</th><th class='num'>TTFT p95</th><th class='num'>Decode p50</th><th class='num'>Prefill p50 (server)</th><th class='num'>Prefill proxy p50</th><th class='num'>E2E p50</th><th class='num'>E2E p95</th><th class='num'>Tok/s wall</th>
 </tr></thead><tbody>
 <tr>
 <td class=''>synthetic-mock</td>
 <td class=''>short_chat</td>
 <td class=''>1</td>
 <td class='num'>8</td>
-<td class='num'>40.15</td>
-<td class='num'>40.19</td>
-<td class='num'>122.4</td>
-<td class='num'>298.8</td>
-<td class='num'>293.5</td>
-<td class='num'>294.4</td>
-<td class='num'>108.8</td>
+<td class='num'>40.16</td>
+<td class='num'>40.21</td>
+<td class='num'>122.1</td>
+<td class='num'>—</td>
+<td class='num'>323.8</td>
+<td class='num'>294.0</td>
+<td class='num'>294.8</td>
+<td class='num'>108.6</td>
 </tr>
 <tr>
 <td class=''>synthetic-mock</td>
 <td class=''>short_chat</td>
 <td class=''>4</td>
 <td class='num'>8</td>
-<td class='num'>40.26</td>
-<td class='num'>40.37</td>
-<td class='num'>121.4</td>
-<td class='num'>297.4</td>
-<td class='num'>295.7</td>
-<td class='num'>296.0</td>
-<td class='num'>431.8</td>
-</tr>
-<tr>
-<td class=''>synthetic-mock</td>
-<td class=''>code</td>
-<td class=''>1</td>
-<td class='num'>8</td>
-<td class='num'>40.15</td>
-<td class='num'>40.21</td>
-<td class='num'>122.4</td>
-<td class='num'>572.8</td>
-<td class='num'>293.3</td>
-<td class='num'>294.0</td>
-<td class='num'>108.9</td>
-</tr>
-<tr>
-<td class=''>synthetic-mock</td>
-<td class=''>code</td>
-<td class=''>4</td>
-<td class='num'>8</td>
-<td class='num'>40.25</td>
-<td class='num'>40.29</td>
-<td class='num'>121.7</td>
-<td class='num'>570.9</td>
-<td class='num'>295.1</td>
-<td class='num'>295.6</td>
-<td class='num'>432.8</td>
-</tr>
-<tr>
-<td class=''>synthetic-mock</td>
-<td class=''>long_context</td>
-<td class=''>1</td>
-<td class='num'>8</td>
-<td class='num'>40.15</td>
-<td class='num'>40.25</td>
-<td class='num'>122.1</td>
-<td class='num'>51177.5</td>
-<td class='num'>294.0</td>
-<td class='num'>294.5</td>
-<td class='num'>108.6</td>
-</tr>
-<tr>
-<td class=''>synthetic-mock</td>
-<td class=''>long_context</td>
-<td class=''>4</td>
-<td class='num'>8</td>
-<td class='num'>40.26</td>
-<td class='num'>40.33</td>
-<td class='num'>121.3</td>
-<td class='num'>51043.0</td>
+<td class='num'>40.30</td>
+<td class='num'>40.32</td>
+<td class='num'>121.6</td>
+<td class='num'>—</td>
+<td class='num'>322.6</td>
+<td class='num'>295.2</td>
 <td class='num'>295.9</td>
-<td class='num'>297.3</td>
-<td class='num'>431.3</td>
+<td class='num'>432.4</td>
+</tr>
+<tr>
+<td class=''>synthetic-mock</td>
+<td class=''>code</td>
+<td class=''>1</td>
+<td class='num'>8</td>
+<td class='num'>40.15</td>
+<td class='num'>40.33</td>
+<td class='num'>122.3</td>
+<td class='num'>—</td>
+<td class='num'>547.2</td>
+<td class='num'>293.7</td>
+<td class='num'>294.5</td>
+<td class='num'>108.7</td>
+</tr>
+<tr>
+<td class=''>synthetic-mock</td>
+<td class=''>code</td>
+<td class=''>4</td>
+<td class='num'>8</td>
+<td class='num'>40.22</td>
+<td class='num'>40.26</td>
+<td class='num'>121.5</td>
+<td class='num'>—</td>
+<td class='num'>546.9</td>
+<td class='num'>295.4</td>
+<td class='num'>296.0</td>
+<td class='num'>432.2</td>
+</tr>
+<tr>
+<td class=''>synthetic-mock</td>
+<td class=''>long_context</td>
+<td class=''>1</td>
+<td class='num'>8</td>
+<td class='num'>40.26</td>
+<td class='num'>40.32</td>
+<td class='num'>122.3</td>
+<td class='num'>—</td>
+<td class='num'>51321.3</td>
+<td class='num'>293.8</td>
+<td class='num'>294.1</td>
+<td class='num'>108.7</td>
+</tr>
+<tr>
+<td class=''>synthetic-mock</td>
+<td class=''>long_context</td>
+<td class=''>4</td>
+<td class='num'>8</td>
+<td class='num'>40.31</td>
+<td class='num'>40.32</td>
+<td class='num'>121.6</td>
+<td class='num'>—</td>
+<td class='num'>51255.2</td>
+<td class='num'>295.2</td>
+<td class='num'>295.6</td>
+<td class='num'>432.6</td>
 </tr>
 </tbody></table>
+<p class='sub'>Prefill (server) is uncached prompt tokens / uncached prompt ms. Prefill proxy is prompt_tokens/TTFT and is never mixed into the server column.</p>
 <ul class='notes'>
-<li>† Prefill may be a TTFT proxy when the server omits prompt_ms.</li>
+<li>server did not report uncached prompt timings; prefill p50 is omitted (prompt_tokens/TTFT proxy is stored separately and not mixed in)</li>
 <li>throughput is completed output tokens / wall time of the measured phase (includes queueing when the server serializes)</li>
 </ul>
 <h2>Harness overhead</h2>
-<p>Zero-delay mock TTFT floor: <strong>0.50 µs</strong> · e2e 3.66 µs · perf_counter_ns ≈ 76 ns/call (7 iterations, 32 tokens).</p>
-<h2>Trials</h2><details><summary>Raw measured trials</summary><table>
+<p>Zero-delay mock TTFT floor: <strong>0.71 µs</strong> · e2e 3.85 µs · perf_counter_ns ≈ 77 ns/call (7 iterations, 32 tokens).</p>
+<h2>Trials</h2>
+<details><summary>Raw measured trials — synthetic-mock (48)</summary>
+<table>
+<caption>Measured trials for synthetic-mock</caption>
 <thead><tr><th>Suite</th><th>Prompt</th><th>Conc</th><th>OK</th><th class='num'>TTFT ms</th><th class='num'>Decode tok/s</th><th class='num'>Out tok</th></tr></thead><tbody>
-<tr><td>short_chat</td><td>chat-05</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.1</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-02</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.4</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-04</td><td>1</td><td class='ok'>yes</td><td class='num'>40.17</td><td class='num'>121.9</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-03</td><td>1</td><td class='ok'>yes</td><td class='num'>40.12</td><td class='num'>122.4</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-11</td><td>1</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>122.3</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-12</td><td>1</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>122.3</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.7</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-07</td><td>1</td><td class='ok'>yes</td><td class='num'>40.13</td><td class='num'>122.6</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-05</td><td>4</td><td class='ok'>yes</td><td class='num'>40.37</td><td class='num'>122.0</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-02</td><td>4</td><td class='ok'>yes</td><td class='num'>40.37</td><td class='num'>121.5</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-04</td><td>4</td><td class='ok'>yes</td><td class='num'>40.36</td><td class='num'>121.4</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-03</td><td>4</td><td class='ok'>yes</td><td class='num'>40.33</td><td class='num'>121.2</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-11</td><td>4</td><td class='ok'>yes</td><td class='num'>40.20</td><td class='num'>121.7</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-12</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.4</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.3</td><td class='num'>32</td></tr>
-<tr><td>short_chat</td><td>chat-07</td><td>4</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>121.2</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>123.0</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-02</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.8</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-04</td><td>1</td><td class='ok'>yes</td><td class='num'>40.13</td><td class='num'>122.9</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-05</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.4</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-06</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.1</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-03</td><td>1</td><td class='ok'>yes</td><td class='num'>40.24</td><td class='num'>122.4</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-04</td><td>1</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>122.5</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-03</td><td>1</td><td class='ok'>yes</td><td class='num'>40.22</td><td class='num'>122.3</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-11</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.4</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-12</td><td>1</td><td class='ok'>yes</td><td class='num'>40.16</td><td class='num'>122.3</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>122.0</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-07</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>121.7</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-10</td><td>1</td><td class='ok'>yes</td><td class='num'>40.16</td><td class='num'>121.9</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-08</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.0</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-04</td><td>4</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>122.0</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-03</td><td>4</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>121.5</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-11</td><td>4</td><td class='ok'>yes</td><td class='num'>40.30</td><td class='num'>121.3</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-12</td><td>4</td><td class='ok'>yes</td><td class='num'>40.29</td><td class='num'>121.2</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.31</td><td class='num'>122.1</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-07</td><td>4</td><td class='ok'>yes</td><td class='num'>40.30</td><td class='num'>121.8</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-10</td><td>4</td><td class='ok'>yes</td><td class='num'>40.30</td><td class='num'>121.7</td><td class='num'>32</td></tr>
+<tr><td>short_chat</td><td>chat-08</td><td>4</td><td class='ok'>yes</td><td class='num'>40.29</td><td class='num'>121.6</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-04</td><td>1</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-05</td><td>1</td><td class='ok'>yes</td><td class='num'>40.37</td><td class='num'>122.0</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-06</td><td>1</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-03</td><td>1</td><td class='ok'>yes</td><td class='num'>40.16</td><td class='num'>122.4</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.5</td><td class='num'>32</td></tr>
 <tr><td>code</td><td>code-02</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.5</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.29</td><td class='num'>122.2</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-02</td><td>4</td><td class='ok'>yes</td><td class='num'>40.28</td><td class='num'>121.9</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-04</td><td>4</td><td class='ok'>yes</td><td class='num'>40.27</td><td class='num'>121.7</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-05</td><td>4</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>121.6</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-06</td><td>4</td><td class='ok'>yes</td><td class='num'>40.25</td><td class='num'>121.9</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-03</td><td>4</td><td class='ok'>yes</td><td class='num'>40.25</td><td class='num'>121.6</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.24</td><td class='num'>121.5</td><td class='num'>32</td></tr>
-<tr><td>code</td><td>code-02</td><td>4</td><td class='ok'>yes</td><td class='num'>40.24</td><td class='num'>121.4</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.16</td><td class='num'>122.2</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.13</td><td class='num'>121.9</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>122.5</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.12</td><td class='num'>122.3</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.20</td><td class='num'>121.9</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.0</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.2</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>1</td><td class='ok'>yes</td><td class='num'>40.22</td><td class='num'>122.1</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.33</td><td class='num'>122.1</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.33</td><td class='num'>121.8</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>121.6</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.31</td><td class='num'>121.5</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.21</td><td class='num'>121.0</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.20</td><td class='num'>120.8</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>120.6</td><td class='num'>32</td></tr>
-<tr><td>long_context</td><td>long-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>120.6</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-04</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>121.9</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-05</td><td>1</td><td class='ok'>yes</td><td class='num'>40.14</td><td class='num'>122.4</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-04</td><td>4</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>121.7</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-05</td><td>4</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>121.4</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-06</td><td>4</td><td class='ok'>yes</td><td class='num'>40.25</td><td class='num'>121.3</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-03</td><td>4</td><td class='ok'>yes</td><td class='num'>40.24</td><td class='num'>121.2</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-01</td><td>4</td><td class='ok'>yes</td><td class='num'>40.20</td><td class='num'>121.9</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-02</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.6</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-04</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.5</td><td class='num'>32</td></tr>
+<tr><td>code</td><td>code-05</td><td>4</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>121.4</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0002</td><td>1</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0003</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.1</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0004</td><td>1</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>122.4</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0005</td><td>1</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>122.3</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0006</td><td>1</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>122.3</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0007</td><td>1</td><td class='ok'>yes</td><td class='num'>40.15</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0008</td><td>1</td><td class='ok'>yes</td><td class='num'>40.26</td><td class='num'>122.3</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0009</td><td>1</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>122.2</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0002</td><td>4</td><td class='ok'>yes</td><td class='num'>40.31</td><td class='num'>121.9</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0003</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.6</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0004</td><td>4</td><td class='ok'>yes</td><td class='num'>40.19</td><td class='num'>121.4</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0005</td><td>4</td><td class='ok'>yes</td><td class='num'>40.18</td><td class='num'>121.3</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0006</td><td>4</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>122.1</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0007</td><td>4</td><td class='ok'>yes</td><td class='num'>40.32</td><td class='num'>121.7</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0008</td><td>4</td><td class='ok'>yes</td><td class='num'>40.31</td><td class='num'>121.6</td><td class='num'>32</td></tr>
+<tr><td>long_context</td><td>long-01-t0009</td><td>4</td><td class='ok'>yes</td><td class='num'>40.31</td><td class='num'>121.5</td><td class='num'>32</td></tr>
 </tbody></table></details>
 
   <h2>How to read this</h2>
   <ul class="notes">
     <li>TTFT is client-observed time to first <em>content</em> token. It includes queueing, prefill, and the first decode step.</li>
     <li>Decode tok/s excludes that first token: (output tokens − 1) / (last token − first token).</li>
-    <li>Prefill tok/s uses server prompt timings when present; otherwise it is the proxy prompt_tokens / TTFT.</li>
+    <li>Prefill (server) is uncached prompt tokens / uncached prompt ms. The proxy column is prompt_tokens/TTFT and is never mixed into server prefill.</li>
     <li>p50 / p95 are linear-interpolation percentiles over successful measured trials (warmup discarded).</li>
     <li>Harness overhead is the client floor measured against a zero-delay mock. Subtract it from TTFT for a lower bound on server time.</li>
     <li>VRAM is device-level when NVML/nvidia-smi is available, sampled on a niced background thread (~4 Hz, 1 Hz for nvidia-smi).</li>
@@ -505,15 +547,30 @@
     (function () {
       var root = document.documentElement;
       var btn = document.getElementById("theme-btn");
-      var stored = localStorage.getItem("llmbench-theme");
+      function readStored() {
+        try { return localStorage.getItem("llmbench-theme"); }
+        catch (e) { return null; }
+      }
+      function writeStored(value) {
+        try { localStorage.setItem("llmbench-theme", value); }
+        catch (e) {}
+      }
+      function prefersDark() {
+        try { return window.matchMedia("(prefers-color-scheme: dark)").matches; }
+        catch (e) { return true; }
+      }
       function apply(theme) {
         root.setAttribute("data-theme", theme);
         btn.textContent = theme === "dark" ? "Light" : "Dark";
+        btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+        btn.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
       }
-      apply(stored === "light" ? "light" : "dark");
+      var stored = readStored();
+      var initial = (stored === "light" || stored === "dark") ? stored : (prefersDark() ? "dark" : "light");
+      apply(initial);
       btn.addEventListener("click", function () {
         var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-        localStorage.setItem("llmbench-theme", next);
+        writeStored(next);
         apply(next);
       });
     })();

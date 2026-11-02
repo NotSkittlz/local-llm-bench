@@ -20,7 +20,7 @@ Python 3.11+.
 pip install -e ".[dev]"
 # or: uv pip install -e ".[dev]"
 
-# Demo — no GPU, no model
+# Demo — no GPU, no model (synthetic ~40 ms TTFT / ~8 ms per token)
 llmbench run --backend mock --label demo
 # writes results/run.json, .csv, .html
 
@@ -59,20 +59,20 @@ JSON schema version **1.0.0** — see [docs/schema.md](docs/schema.md).
 | --- | --- |
 | TTFT | Client time to first *content* token (`perf_counter_ns`) |
 | Decode tok/s | `(output_tokens − 1) / (last − first token)` |
-| Prefill tok/s | Server prompt timings, else the labelled proxy `prompt_tokens / TTFT` |
+| Prefill tok/s | Uncached prompt tokens / uncached prompt ms (null if unknown). Proxy `prompt_tokens / TTFT` is stored separately and never mixed in |
 | E2E p50 / p95 | End-to-end latency over successful measured trials |
 | Concurrency | Open-loop in-flight `C`; wall tok/s **and** per-request latency |
 | Memory | GPU VRAM via NVML / `nvidia-smi` (1 Hz fallback), Apple/AMD best-effort, process RSS |
 | Harness floor | Zero-delay mock TTFT, recorded on every run |
 | Quality probe | Separate greedy request; SHA-256 + optional substring; does not rewrite speed-run sampling |
 
-Defaults: `seed=42`, `warmup=2`, `iterations=8`, `concurrency=[1]`, greedy sampling (`T=0`). Warmup is stored and **excluded** from percentiles.
+Defaults: `seed=42`, `warmup=2`, `iterations=16`, `concurrency=[1]`, greedy sampling (`T=0`). Warmup is a distinct prefix of the prompt sequence and is **excluded** from percentiles. `--quality-strict` aborts if the greedy probe fails.
 
 The long version — clocks, token-count sources, thermal throttling, batching, queueing vs compute — is [docs/methodology.md](docs/methodology.md). Read it before you paste a table into a README.
 
 ## Supported backends
 
-Local HTTP only. Non-loopback / non-LAN / non-`*.local` URLs are rejected.
+Local HTTP only. Hosts are resolved and every address is checked (loopback, RFC1918, link-local, IPv6 ULA). Public IPs and prefix-trick hostnames like `10.attacker.com` are refused unless you pass `--allow-remote`.
 
 | `backend.type` | How we talk to it | Default URL |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ Local HTTP only. Non-loopback / non-LAN / non-`*.local` URLs are rejected.
 | `openai_compat` | Same protocol, any local URL | `http://127.0.0.1:8080` |
 | `ollama` | `/api/chat` NDJSON stream | `http://127.0.0.1:11434` |
 
-The harness never changes temperature, top_p, max tokens, or stop sequences to make a speed run look better. Quality checks are a second request with greedy settings, recorded under `quality`.
+The harness never changes temperature, top_p, max tokens, or stop sequences to make a speed run look better. Parameter names are mapped per backend (vLLM `repetition_penalty`, Ollama `num_ctx` / `min_p` / `stop`); anything not sent is listed in `sampling.dropped`. `--quantization` and `--context-length` are user-declared metadata except Ollama `num_ctx`. Quality checks are a second request with greedy settings, recorded under `quality`.
 
 ## Sample data
 
@@ -103,7 +103,7 @@ ruff format src tests
 pytest
 ```
 
-CI: GitHub Actions on `ubuntu-latest`, Python 3.11 and 3.12, ruff + pytest. See [CONTRIBUTING.md](CONTRIBUTING.md).
+CI: GitHub Actions on `ubuntu-latest`, Python 3.11, 3.12, and 3.13, ruff + pytest. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 

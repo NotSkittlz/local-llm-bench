@@ -1,7 +1,7 @@
 # Example config. All endpoints must be local (loopback or LAN).
 seed: 42
 warmup: 2
-iterations: 8
+iterations: 16
 concurrency: [1, 2]
 timeout_s: 120
 suites:
@@ -12,6 +12,7 @@ backend:
   model: mock-7b
   # base_url: http://127.0.0.1:11434
 model:
+  # User-declared metadata (not applied except Ollama num_ctx).
   quantization: Q4_K_M
   context_length: 8192
 sampling:
