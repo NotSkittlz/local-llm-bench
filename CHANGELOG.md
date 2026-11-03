@@ -54,3 +54,6 @@ landed on PR #1 after adversarial review:
   default. Architecture max is stored as `context_length_max`.
 - Summary/HTML notes that llama.cpp `long_context` at `C>1` can show
   lower per-request decode because slots share the GPU during prefill.
+- Ollama does not assume a 4096 context default: re-read `/api/ps` after
+  the model loads, and warn instead of skipping when the runtime window
+  is still unknown.

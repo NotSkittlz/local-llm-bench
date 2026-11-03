@@ -9,15 +9,11 @@ from llmbench.metrics import approx_tokens_from_chars, summarize
 from llmbench.schema import BackendInfo, SuiteSummary
 from llmbench.workloads import load_suite
 
-# docs.ollama.com/faq: default context window is 4096 unless overridden.
-OLLAMA_DEFAULT_NUM_CTX = 4096
-
 _CTX_LABELS = {
     "applied_num_ctx": "Ollama options.num_ctx",
     "ollama_ps": "Ollama /api/ps context_length",
     "ollama_num_ctx": "Ollama /api/show num_ctx",
     "ollama_env": "OLLAMA_CONTEXT_LENGTH",
-    "ollama_default": "Ollama default num_ctx",
     "server": "llama.cpp /props n_ctx (per slot)",
 }
 
@@ -28,7 +24,8 @@ def server_n_ctx(info: BackendInfo, cfg: BenchConfig) -> tuple[int | None, int |
     llama.cpp ``default_generation_settings.n_ctx`` is the **per-slot** window
     (``n_ctx_slot``), not a shared pool to multiply by concurrency.
     Ollama uses the **runtime** window (``/api/ps``, Modelfile ``num_ctx``,
-    ``OLLAMA_CONTEXT_LENGTH``, or the 4096 default), never architecture max.
+    or ``OLLAMA_CONTEXT_LENGTH``), never architecture max and never an
+    assumed 4096 default.
     ``OLLAMA_NUM_PARALLEL`` is the slot count when the server exposes it.
     """
 
@@ -145,7 +142,22 @@ def _ollama_n_ctx(info: BackendInfo, cfg: BenchConfig) -> tuple[int | None, str]
     env_ctx = _as_int(extra.get("ollama_context_length_env"))
     if env_ctx is not None and env_ctx > 0:
         return env_ctx, "ollama_env"
-    return OLLAMA_DEFAULT_NUM_CTX, "ollama_default"
+    return None, ""
+
+
+def unknown_ollama_context_warning(info: BackendInfo, cfg: BenchConfig) -> str | None:
+    """Warn when we cannot see the served window; do not skip on a guessed default."""
+
+    if cfg.backend.type != "ollama":
+        return None
+    n_ctx, _slots, _source = server_n_ctx(info, cfg)
+    if n_ctx is not None and n_ctx > 0:
+        return None
+    return (
+        "Ollama runtime context is unknown (model not in /api/ps and "
+        "OLLAMA_CONTEXT_LENGTH is not visible from this process); not skipping "
+        "suites on Ollama's documented 4096 default"
+    )
 
 
 def _ctx_label(source: str) -> str:

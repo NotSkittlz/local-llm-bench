@@ -15,11 +15,11 @@ from llmbench.cli import _print_summary
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.http_errors import error_message_from_payload, format_http_error
 from llmbench.preflight import (
-    OLLAMA_DEFAULT_NUM_CTX,
     context_overflow_message,
     context_queueing_note,
     server_n_ctx,
     slot_prefill_contention_note,
+    unknown_ollama_context_warning,
 )
 from llmbench.report import render_html, render_markdown
 from llmbench.runner import run_benchmark
@@ -277,10 +277,12 @@ def test_ollama_preflight_skips_against_runtime_not_model_max() -> None:
     assert "api/ps" in msg
 
 
-def test_ollama_falls_back_to_env_then_default() -> None:
+def test_ollama_falls_back_to_env_not_assumed_default() -> None:
     cfg = BenchConfig(
-        suites=["short_chat"],
+        suites=["long_context"],
         concurrency=[1],
+        long_context_chars=50_000,
+        sampling=SamplingParams(max_tokens=32),
         backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
         quality=QualityConfig(enabled=False),
     )
@@ -292,8 +294,9 @@ def test_ollama_falls_back_to_env_then_default() -> None:
     assert source == "ollama_env"
     empty = BackendInfo(type="ollama", extra={"context_length_max": 262144})
     n_ctx, _slots, source = server_n_ctx(empty, cfg)
-    assert n_ctx == OLLAMA_DEFAULT_NUM_CTX
-    assert source == "ollama_default"
+    assert n_ctx is None
+    assert unknown_ollama_context_warning(empty, cfg) is not None
+    assert context_overflow_message(cfg, empty, suite="long_context", concurrency=1) is None
 
 
 @pytest.mark.asyncio
@@ -403,3 +406,68 @@ async def test_runner_notes_llamacpp_parallel_long_context_contention() -> None:
     cfg.concurrency = [1]
     solo = await run_benchmark(cfg, backend=_PropsBackend())
     assert not any("share the GPU" in n for s in solo.summaries for n in s.notes)
+
+
+class _ColdThenHotOllama(MockBackend):
+    """info() reports /api/ps only after complete() has loaded the model."""
+
+    async def info(self) -> BackendInfo:
+        extra: dict = {"context_length_max": 131072}
+        if self.calls > 0:
+            extra["ps_context_length"] = 32768
+        return BackendInfo(type="ollama", extra=extra)
+
+
+@pytest.mark.asyncio
+async def test_runner_rereads_ollama_ps_after_quality_probe() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="ollama",
+            base_url="http://127.0.0.1:11434",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=True, max_tokens=8),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_ColdThenHotOllama())
+    assert result.model.context_length == 32768
+    assert result.model.context_length_source == "ollama_ps"
+    assert not any("4096" in w for w in result.warnings)
+    assert not any("unknown" in w.lower() for w in result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_skip_long_context_on_unknown_ollama_ctx() -> None:
+    class _NeverPs(MockBackend):
+        async def info(self) -> BackendInfo:
+            return BackendInfo(type="ollama", extra={"context_length_max": 131072})
+
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=1,
+        concurrency=[1],
+        suites=["long_context"],
+        long_context_chars=50_000,
+        backend=BackendConfig(
+            type="ollama",
+            base_url="http://127.0.0.1:11434",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_NeverPs())
+    assert result.summaries[0].n_ok == 1
+    assert result.model.context_length is None
+    assert any("runtime context is unknown" in w for w in result.warnings)
+    assert not any(w.startswith("skipping") for w in result.warnings)

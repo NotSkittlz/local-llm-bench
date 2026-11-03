@@ -250,9 +250,10 @@ on the wire, including vLLM `repetition_penalty` and Ollama `num_ctx`),
 `sampling.dropped`, per-trial `max_tokens` and the min–max range,
 quantization / context_length with a `*_source` of `user_declared`,
 `applied_num_ctx`, `server` (llama.cpp `/props` n_ctx), or Ollama runtime
-(`ollama_ps` from `/api/ps`, Modelfile `num_ctx`, `OLLAMA_CONTEXT_LENGTH`,
-or Ollama's 4096 default). Architecture max is `context_length_max` and is
-not used for overflow checks. Backend type/version, model id.
+(`ollama_ps` from `/api/ps` after the model is loaded, Modelfile `num_ctx`,
+or `OLLAMA_CONTEXT_LENGTH` when visible). Architecture max is
+`context_length_max`. An unknown runtime window is left null and never
+treated as Ollama's documented 4096 default. Backend type/version, model id.
 
 Two runs are comparable only if those fields match. `llmbench compare`
 aligns by suite name and concurrency; it will not pretend mismatched
@@ -304,8 +305,10 @@ hosts; metadata endpoints stay blocked.
 
 **Context vs concurrency.** Before a suite wave, the harness reads llama.cpp
 `/props` (`n_ctx` **per slot**, `total_slots`) or Ollama's **runtime**
-window (`/api/ps` `context_length`, else Modelfile `num_ctx`, else
-`OLLAMA_CONTEXT_LENGTH` on a loopback server, else Ollama's 4096 default).
+window (`/api/ps` `context_length` after load, else Modelfile `num_ctx`,
+else `OLLAMA_CONTEXT_LENGTH` on a loopback server). If that is still
+unknown, the wave is **not** skipped on a guessed 4096 default; a warning
+is recorded instead.
 `/api/show` `model_info.*.context_length` is the architecture maximum
 (`context_length_max`), not the served window. A wave is skipped only when
 **one** prompt + `max_tokens` cannot fit in that per-slot window.

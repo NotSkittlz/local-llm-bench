@@ -36,6 +36,7 @@ from llmbench.preflight import (
     server_n_ctx,
     skipped_summary,
     slot_prefill_contention_note,
+    unknown_ollama_context_warning,
 )
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
@@ -112,14 +113,28 @@ async def run_benchmark(
                     await backend.aclose()
                 raise ConfigError("quality probe failed and quality.strict is set")
 
+    if cfg.backend.type == "ollama":
+        # Quality probe (or a later suite) loads the model; /api/ps is empty until then.
+        backend_info = await _refresh_backend_info(backend, backend_info)
+
     trials: list[Trial] = []
     summaries: list[SuiteSummary] = []
     wall0 = wall_ns()
     mono0 = time.perf_counter_ns()
+    unknown_ctx_warned = False
 
     try:
         for suite in cfg.suites:
             load_suite(suite, cfg)  # fail fast on unknown
+            if cfg.backend.type == "ollama":
+                n_ctx, _slots, _src = server_n_ctx(backend_info, cfg)
+                if n_ctx is None:
+                    backend_info = await _refresh_backend_info(backend, backend_info)
+                unknown = unknown_ollama_context_warning(backend_info, cfg)
+                if unknown and not unknown_ctx_warned:
+                    emit(f"  {unknown}")
+                    warnings.append(unknown)
+                    unknown_ctx_warned = True
             for conc in cfg.concurrency:
                 emit(f"suite {suite}  concurrency={conc}")
                 overflow = context_overflow_message(
@@ -564,6 +579,13 @@ def _warn_thinking_budget(cfg: BenchConfig, info: BackendInfo, warnings: list[st
         "thinking may consume the whole budget before any content token. "
         "Pass --thinking off or raise max_tokens (long_context defaults to 32)."
     )
+
+
+async def _refresh_backend_info(backend: Backend, previous: BackendInfo) -> BackendInfo:
+    try:
+        return await backend.info()
+    except Exception:
+        return previous
 
 
 def _context_length_from_server(
