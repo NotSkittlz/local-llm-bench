@@ -193,6 +193,7 @@ async def test_summary_prefill_excludes_ttft_proxy() -> None:
     assert all(t.prefill_tps is None for t in result.trials if t.ok)
     assert all(t.prefill_source == "not_meaningful_short_prompt" for t in result.trials if t.ok)
     assert any("256" in n for n in summary.notes)
+    assert any(n.startswith("short_chat [mock]:") for n in summary.notes)
 
 
 class _ThinkingBackend(MockBackend):

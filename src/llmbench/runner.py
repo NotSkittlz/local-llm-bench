@@ -365,10 +365,17 @@ async def _run_suite(
     throughput_tps = (out_tokens / wall_s) if wall_s else None
     rps = (len(ok_trials) / wall_s) if wall_s else None
     notes: list[str] = []
+    backend_name = cfg.backend.type
+
+    def tagged(msg: str) -> str:
+        return f"{suite} [{backend_name}]: {msg}"
+
     if concurrency > 1:
         notes.append(
-            "throughput is completed output tokens / wall time of the measured phase "
-            "(includes queueing when the server serializes)"
+            tagged(
+                "throughput is completed output tokens / wall time of the measured phase "
+                "(includes queueing when the server serializes)"
+            )
         )
     server_prefill = [t.prefill_tps for t in ok_trials if t.prefill_tps is not None]
     proxy_prefill = [t.prefill_tps_proxy for t in ok_trials if t.prefill_tps_proxy is not None]
@@ -385,31 +392,41 @@ async def _run_suite(
     short_prefill = sum(1 for t in ok_trials if t.prefill_source == "not_meaningful_short_prompt")
     if short_prefill:
         notes.append(
-            f"prefill omitted for {short_prefill} trial(s) with prompt_tokens "
-            f"< {PREFILL_MIN_PROMPT_TOKENS} (fixed overhead dominates on short prompts)"
+            tagged(
+                f"prefill omitted for {short_prefill} trial(s) with prompt_tokens "
+                f"< {PREFILL_MIN_PROMPT_TOKENS} (fixed overhead dominates on short prompts)"
+            )
         )
     if server_prefill:
-        notes.append("prefill tok/s is uncached prompt tokens / uncached prompt ms")
+        notes.append(tagged("prefill tok/s is uncached prompt tokens / uncached prompt ms"))
     elif proxy_prefill:
         notes.append(
-            "server did not report uncached prompt timings; prefill p50 is omitted "
-            "(prompt_tokens/TTFT proxy is stored separately and not mixed in)"
+            tagged(
+                "server did not report uncached prompt timings; prefill p50 is omitted "
+                "(prompt_tokens/TTFT proxy is stored separately and not mixed in)"
+            )
         )
     if cache_hits:
         notes.append(
-            f"{cache_hits}/{len(ok_trials)} measured trials had a prompt cache hit "
-            "(beyond the chat-template prefix)"
+            tagged(
+                f"{cache_hits}/{len(ok_trials)} measured trials had a prompt cache hit "
+                "(beyond the chat-template prefix)"
+            )
         )
     elif prefix_cached:
         notes.append(
-            f"{prefix_cached}/{len(ok_trials)} trials cached a short template prefix "
-            f"(≤{TEMPLATE_PREFIX_MAX_TOKENS} tokens); not counted as prompt cache hits"
+            tagged(
+                f"{prefix_cached}/{len(ok_trials)} trials cached a short template prefix "
+                f"(≤{TEMPLATE_PREFIX_MAX_TOKENS} tokens); not counted as prompt cache hits"
+            )
         )
     reasoning_only = sum(1 for t in ok_trials if FLAG_NO_CONTENT_REASONING in t.flags)
     if reasoning_only:
         notes.append(
-            f"{reasoning_only}/{len(ok_trials)} measured trials finished with only "
-            "reasoning tokens (no_content_reasoning_only); counted for speed metrics"
+            tagged(
+                f"{reasoning_only}/{len(ok_trials)} measured trials finished with only "
+                "reasoning tokens (no_content_reasoning_only); counted for speed metrics"
+            )
         )
     err_msgs = []
     for trial in measured:
@@ -418,7 +435,7 @@ async def _run_suite(
         if trial.error not in err_msgs:
             err_msgs.append(trial.error)
     for msg in err_msgs[:4]:
-        notes.append(msg)
+        notes.append(tagged(msg))
     summary = SuiteSummary(
         name=suite,
         concurrency=concurrency,

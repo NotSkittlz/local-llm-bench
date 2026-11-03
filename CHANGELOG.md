@@ -59,3 +59,4 @@ landed on PR #1 after adversarial review:
   is still unknown.
 - Queueing notes cite `/props total_slots` (no nested parens) and appear
   once per suite summary.
+- Suite footer notes are prefixed with `suite [backend]`.
