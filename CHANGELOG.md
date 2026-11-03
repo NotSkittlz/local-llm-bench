@@ -57,3 +57,5 @@ landed on PR #1 after adversarial review:
 - Ollama does not assume a 4096 context default: re-read `/api/ps` after
   the model loads, and warn instead of skipping when the runtime window
   is still unknown.
+- Queueing notes cite `/props total_slots` (no nested parens) and appear
+  once per suite summary.

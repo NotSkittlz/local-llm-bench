@@ -146,9 +146,6 @@ async def run_benchmark(
                     summaries.append(skipped_summary(suite, conc, overflow))
                     continue
                 queue_note = context_queueing_note(cfg, backend_info, suite=suite, concurrency=conc)
-                if queue_note:
-                    emit(f"  {queue_note}")
-                    warnings.append(queue_note)
                 suite_trials, summary = await _run_suite(
                     backend,
                     cfg,

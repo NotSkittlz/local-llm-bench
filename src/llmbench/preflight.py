@@ -102,12 +102,12 @@ def context_queueing_note(
 ) -> str | None:
     """When C is above parallel slots the extra requests queue; do not skip."""
 
-    _n_ctx, slots, source = server_n_ctx(info, cfg)
+    _n_ctx, slots, _source = server_n_ctx(info, cfg)
     if slots is None or slots <= 0 or concurrency <= slots:
         return None
     return (
         f"{suite} concurrency={concurrency} exceeds parallel slots={slots} "
-        f"({_ctx_label(source)}); extra in-flight requests will queue"
+        f"({_parallel_slots_label(cfg)}); extra in-flight requests will queue"
     )
 
 
@@ -162,6 +162,14 @@ def unknown_ollama_context_warning(info: BackendInfo, cfg: BenchConfig) -> str |
 
 def _ctx_label(source: str) -> str:
     return _CTX_LABELS.get(source, source)
+
+
+def _parallel_slots_label(cfg: BenchConfig) -> str:
+    if cfg.backend.type == "llamacpp":
+        return "llama.cpp /props total_slots"
+    if cfg.backend.type == "ollama":
+        return "OLLAMA_NUM_PARALLEL"
+    return "parallel slots"
 
 
 def _as_int(value: Any) -> int | None:

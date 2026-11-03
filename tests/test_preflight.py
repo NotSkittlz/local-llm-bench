@@ -92,6 +92,9 @@ def test_queueing_note_when_concurrency_exceeds_slots() -> None:
     note = context_queueing_note(cfg, info, suite="short_chat", concurrency=8)
     assert note is not None
     assert "exceeds parallel slots=4" in note
+    assert "llama.cpp /props total_slots" in note
+    assert "n_ctx" not in note
+    assert note.count("(") == 1
     assert "queue" in note
 
 
@@ -110,6 +113,7 @@ def test_ollama_num_ctx_is_per_request_not_times_concurrency() -> None:
     note = context_queueing_note(cfg, info, suite="long_context", concurrency=4)
     assert note is not None
     assert "slots=2" in note
+    assert "OLLAMA_NUM_PARALLEL" in note
 
 
 @pytest.mark.asyncio
@@ -320,8 +324,11 @@ async def test_runner_notes_queueing_when_concurrency_exceeds_slots() -> None:
     result = await run_benchmark(cfg, backend=_PropsBackend(slots=4))
     assert len([t for t in result.trials if not t.warmup]) == 2
     assert result.summaries[0].n_ok == 2
-    assert any("exceeds parallel slots=4" in w for w in result.warnings)
-    assert any("queue" in n for n in result.summaries[0].notes)
+    queue_notes = [n for n in result.summaries[0].notes if "exceeds parallel slots=4" in n]
+    assert len(queue_notes) == 1
+    assert "llama.cpp /props total_slots" in queue_notes[0]
+    assert "n_ctx" not in queue_notes[0]
+    assert not any("exceeds parallel slots" in w for w in result.warnings)
 
 
 @pytest.mark.asyncio
