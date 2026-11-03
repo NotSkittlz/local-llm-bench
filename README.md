@@ -70,6 +70,8 @@ Defaults: `seed=42`, `warmup=2`, `iterations=16`, `concurrency=[1]`, greedy samp
 
 Speculative decoding (Ollama draft models / `draft_num_predict`) makes decode tok/s **prompt-dependent**: accepted draft tokens vary with content, so the same model can show different decode rates on different suites. Compare like-for-like prompts.
 
+llama.cpp keeps a RAM prompt cache. When it evicts an entry ("making room for prompt cache entry"), a later prompt of similar length can re-prefill in seconds instead of a cache-hit millisecond path. The harness notes this when prefill-time p90/p50 is large; it does not drop trials.
+
 The long version — clocks, token-count sources, thermal throttling, batching, queueing vs compute — is [docs/methodology.md](docs/methodology.md). Read it before you paste a table into a README.
 
 ## Supported backends

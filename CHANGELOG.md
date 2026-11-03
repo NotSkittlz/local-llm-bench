@@ -60,3 +60,5 @@ landed on PR #1 after adversarial review:
 - Queueing notes cite `/props total_slots` (no nested parens) and appear
   once per suite summary.
 - Suite footer notes are prefixed with `suite [backend]`.
+- Notes bimodal llama.cpp prompt-processing times (p90/p50) caused by RAM
+  prompt-cache eviction.

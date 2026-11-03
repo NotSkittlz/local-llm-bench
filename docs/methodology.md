@@ -111,6 +111,12 @@ Prefill on prompts shorter than **256 tokens** is omitted
 compute; quoting ~150 tok/s next to a 3k-token ~2200 tok/s figure is
 misleading.
 
+llama.cpp's in-RAM prompt cache can evict an entry to make room for a new
+one. The next similar-length prompt then re-prefills from scratch, so
+prompt-processing times in one suite can be bimodal (fast cache-hit vs
+slow full prefill). The suite summary notes this when uncached prompt
+time p90/p50 ≥ 3; trials are not dropped.
+
 `long_context` trials get a unique prefix nonce so later measured trials
 are not prefix-cache hits on the same body. `cache_hit` is true only when
 cached tokens exceed the shared chat-template prefix (more than 64 tokens)

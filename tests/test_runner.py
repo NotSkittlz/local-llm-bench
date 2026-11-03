@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from llmbench.backends.base import CompletionRequest
 from llmbench.backends.mock import MockBackend
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
 from llmbench.export import read_json, write_csv, write_json
@@ -238,3 +239,43 @@ async def test_thinking_warning_ignores_quality_probe_budget() -> None:
     result = await run_benchmark(cfg, backend=_ThinkingBackend(cfg.backend))
     assert not any("reasoning-capable" in w for w in result.warnings)
     assert not any("smallest max_tokens budget is 16" in w for w in result.warnings)
+
+
+class _BimodalPrefillBackend(MockBackend):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._prefill_i = 0
+
+    async def complete(self, request: CompletionRequest):
+        result = await super().complete(request)
+        self._prefill_i += 1
+        ms = 12_000.0 if self._prefill_i == 4 else 1_400.0
+        if result.server_timings is not None:
+            result.server_timings.uncached_prompt_ms = ms
+            result.server_timings.prompt_ms = ms
+        return result
+
+
+@pytest.mark.asyncio
+async def test_runner_notes_bimodal_llamacpp_prefill() -> None:
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=4,
+        concurrency=[1],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="llamacpp",
+            base_url="http://127.0.0.1:8080",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_BimodalPrefillBackend(cfg.backend))
+    notes = result.summaries[0].notes
+    assert any("prefill times look bimodal" in n for n in notes)
+    assert any("llama.cpp RAM prompt cache" in n for n in notes)
+    assert any(n.startswith("short_chat [llamacpp]:") for n in notes)

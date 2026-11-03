@@ -26,8 +26,10 @@ from llmbench.metrics import (
     FLAG_DECODE_DISAGREE,
     PREFILL_MIN_PROMPT_TOKENS,
     TEMPLATE_PREFIX_MAX_TOKENS,
+    bimodal_prefill_ratio,
     fill_trial_derived,
     summarize,
+    trial_prefill_time_ms,
 )
 from llmbench.overhead import measure_harness_overhead
 from llmbench.preflight import (
@@ -428,6 +430,13 @@ async def _run_suite(
                 "reasoning tokens (no_content_reasoning_only); counted for speed metrics"
             )
         )
+    prefill_times = [ms for t in ok_trials if (ms := trial_prefill_time_ms(t)) is not None]
+    ratio = bimodal_prefill_ratio(prefill_times)
+    if ratio is not None:
+        extra = ""
+        if cfg.backend.type == "llamacpp":
+            extra = "; llama.cpp RAM prompt cache eviction can force a full re-prefill"
+        notes.append(tagged(f"prefill times look bimodal (p90/p50={ratio:.1f}){extra}"))
     err_msgs = []
     for trial in measured:
         if trial.ok or not trial.error:

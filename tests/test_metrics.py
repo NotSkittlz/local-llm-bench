@@ -5,12 +5,14 @@ import math
 from llmbench.metrics import (
     FLAG_DECODE_DISAGREE,
     approx_tokens_from_chars,
+    bimodal_prefill_ratio,
     classify_cache_hit,
     fill_trial_derived,
     percentile,
     summarize,
     trial_decode_tps,
     trial_decode_tps_server,
+    trial_prefill_time_ms,
     trial_prefill_tps,
     trial_prefill_tps_proxy,
     trial_ttft_ms,
@@ -210,3 +212,31 @@ def test_short_output_does_not_flag_decode_disagree() -> None:
     )
     fill_trial_derived(trial)
     assert FLAG_DECODE_DISAGREE not in trial.flags
+
+
+def test_bimodal_prefill_ratio_flags_large_p90_p50() -> None:
+    tight = [1400.0, 1450.0, 1500.0, 1550.0]
+    assert bimodal_prefill_ratio(tight) is None
+    spread = [1400.0, 1400.0, 1400.0, 12_000.0]
+    ratio = bimodal_prefill_ratio(spread)
+    assert ratio is not None
+    assert ratio >= 3.0
+    assert bimodal_prefill_ratio(spread[:3]) is None
+
+
+def test_trial_prefill_time_prefers_uncached_ms() -> None:
+    trial = Trial(
+        trial_id="t",
+        suite="long_context",
+        prompt_id="lc-01",
+        concurrency=1,
+        ok=True,
+        prompt_chars=1000,
+        output_tokens=8,
+        start_ns=0,
+        first_token_ns=1,
+        last_token_ns=2,
+        end_ns=3,
+        server_timings=ServerTimings(uncached_prompt_ms=11_000.0, prompt_ms=1_400.0),
+    )
+    assert trial_prefill_time_ms(trial) == 11_000.0

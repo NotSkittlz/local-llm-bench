@@ -34,6 +34,9 @@ FLAG_DECODE_DISAGREE = "decode_client_server_disagree"
 TEMPLATE_PREFIX_MAX_TOKENS = 64
 CACHE_HIT_MIN_FRACTION = 0.25
 PREFILL_MIN_PROMPT_TOKENS = 256
+# Flag llama.cpp RAM prompt-cache eviction (slow re-prefill vs a cache hit).
+PREFILL_BIMODAL_RATIO = 3.0
+PREFILL_BIMODAL_MIN_N = 4
 
 
 def percentile(xs: Sequence[float], p: float) -> float | None:
@@ -214,6 +217,34 @@ def fill_trial_derived(trial: Trial) -> Trial:
     else:
         trial.prefill_source = None
     return trial
+
+
+def trial_prefill_time_ms(trial: Trial) -> float | None:
+    """Server-reported prompt processing time, preferring the uncached span."""
+
+    st = trial.server_timings
+    if st is None:
+        return None
+    for value in (st.uncached_prompt_ms, st.prompt_ms):
+        if value is not None and value > 0 and not math.isnan(value):
+            return float(value)
+    return None
+
+
+def bimodal_prefill_ratio(times: Sequence[float]) -> float | None:
+    """p90/p50 of prompt-processing times, or None when the spread is small."""
+
+    values = [float(x) for x in times if x is not None and not math.isnan(x) and x > 0]
+    if len(values) < PREFILL_BIMODAL_MIN_N:
+        return None
+    p50 = percentile(values, 50)
+    p90 = percentile(values, 90)
+    if p50 is None or p90 is None or p50 <= 0:
+        return None
+    ratio = p90 / p50
+    if ratio < PREFILL_BIMODAL_RATIO:
+        return None
+    return ratio
 
 
 def approx_tokens_from_chars(n_chars: int) -> int:
