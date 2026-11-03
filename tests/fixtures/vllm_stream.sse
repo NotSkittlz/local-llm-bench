@@ -1,0 +1,9 @@
+data: {"id":"cmpl-fixture","object":"chat.completion.chunk","created":1,"model":"qwen2.5","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"cmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":[{"type":"text","text":"Hi"}]},"finish_reason":null}]}
+
+data: {"id":"cmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: {"id":"cmpl-fixture","object":"chat.completion.chunk","choices":[],"usage":{"prompt_tokens":10.0,"completion_tokens":1.0,"total_tokens":11.0}}
+
+data: [DONE]

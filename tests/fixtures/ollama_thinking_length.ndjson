@@ -1,0 +1,4 @@
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":"The"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":" question"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":" needs"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":""},"done":true,"done_reason":"length","prompt_eval_count":18,"prompt_eval_cached_count":0,"prompt_eval_duration":126382000,"eval_count":32,"eval_duration":360000000,"load_duration":2610700,"total_duration":520000000}

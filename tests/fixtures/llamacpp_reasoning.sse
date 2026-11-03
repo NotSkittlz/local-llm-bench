@@ -1,0 +1,13 @@
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","created":1,"model":"qwen3.8:27b","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"Let"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":" me"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":" think"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hi"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"timings":{"prompt_n":20,"prompt_ms":165.515,"predicted_n":128,"predicted_ms":2805.0,"cache_n":42},"usage":{"prompt_tokens":62,"completion_tokens":128,"total_tokens":190}}
+
+data: [DONE]

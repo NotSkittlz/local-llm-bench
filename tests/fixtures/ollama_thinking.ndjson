@@ -1,0 +1,5 @@
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":"Let"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":" me"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"","thinking":" think"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":"Hello"},"done":false}
+{"model":"qwen3.8:27b","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","prompt_eval_count":19,"prompt_eval_cached_count":0,"prompt_eval_duration":121620000,"eval_count":100,"eval_duration":1379000000,"load_duration":2077100,"total_duration":1579000000}
