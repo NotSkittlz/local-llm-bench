@@ -20,6 +20,7 @@ from llmbench.preflight import (
     server_n_ctx,
     slot_prefill_contention_note,
     unknown_ollama_context_warning,
+    unknown_parallel_note,
 )
 from llmbench.report import render_html, render_markdown
 from llmbench.runner import run_benchmark
@@ -114,6 +115,23 @@ def test_ollama_num_ctx_is_per_request_not_times_concurrency() -> None:
     assert note is not None
     assert "slots=2" in note
     assert "OLLAMA_NUM_PARALLEL" in note
+
+
+def test_ollama_unknown_slots_note_when_concurrency_gt_1() -> None:
+    cfg = BenchConfig(
+        suites=["short_chat"],
+        concurrency=[4],
+        backend=BackendConfig(type="ollama", base_url="http://127.0.0.1:11434", model="m"),
+        quality=QualityConfig(enabled=False),
+    )
+    empty = BackendInfo(type="ollama", extra={})
+    note = unknown_parallel_note(cfg, empty, suite="short_chat", concurrency=4)
+    assert note is not None
+    assert "OLLAMA_NUM_PARALLEL is unknown" in note
+    assert "may serialize" in note
+    assert unknown_parallel_note(cfg, empty, suite="short_chat", concurrency=1) is None
+    known = BackendInfo(type="ollama", extra={"num_parallel": 4})
+    assert unknown_parallel_note(cfg, known, suite="short_chat", concurrency=4) is None
 
 
 @pytest.mark.asyncio
@@ -478,3 +496,32 @@ async def test_runner_does_not_skip_long_context_on_unknown_ollama_ctx() -> None
     assert result.model.context_length is None
     assert any("runtime context is unknown" in w for w in result.warnings)
     assert not any(w.startswith("skipping") for w in result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_runner_notes_unknown_ollama_parallel_at_concurrency() -> None:
+    class _NoSlots(MockBackend):
+        async def info(self) -> BackendInfo:
+            return BackendInfo(type="ollama", extra={"ps_context_length": 8192})
+
+    cfg = BenchConfig(
+        warmup=0,
+        iterations=2,
+        concurrency=[2],
+        suites=["short_chat"],
+        backend=BackendConfig(
+            type="ollama",
+            base_url="http://127.0.0.1:11434",
+            model="m",
+            mock_output_tokens=2,
+            mock_ttft_ns=0,
+            mock_inter_token_ns=0,
+        ),
+        quality=QualityConfig(enabled=False),
+        memory=MemoryConfig(enabled=False),
+    )
+    result = await run_benchmark(cfg, backend=_NoSlots())
+    notes = result.summaries[0].notes
+    assert any("OLLAMA_NUM_PARALLEL is unknown" in n for n in notes)
+    assert any("may serialize" in n for n in notes)
+    assert not any("OLLAMA_NUM_PARALLEL is unknown" in w for w in result.warnings)

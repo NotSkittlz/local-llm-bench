@@ -39,6 +39,7 @@ from llmbench.preflight import (
     skipped_summary,
     slot_prefill_contention_note,
     unknown_ollama_context_warning,
+    unknown_parallel_note,
 )
 from llmbench.quality import run_quality_probe
 from llmbench.sampling import map_sampling
@@ -158,6 +159,11 @@ async def run_benchmark(
                 )
                 if queue_note:
                     summary.notes.append(queue_note)
+                serialize_note = unknown_parallel_note(
+                    cfg, backend_info, suite=suite, concurrency=conc
+                )
+                if serialize_note:
+                    summary.notes.append(serialize_note)
                 contention = slot_prefill_contention_note(cfg, suite=suite, concurrency=conc)
                 if contention:
                     summary.notes.append(contention)

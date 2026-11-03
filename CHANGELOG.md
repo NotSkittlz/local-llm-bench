@@ -62,3 +62,5 @@ landed on PR #1 after adversarial review:
 - Suite footer notes are prefixed with `suite [backend]`.
 - Notes bimodal llama.cpp prompt-processing times (p90/p50) caused by RAM
   prompt-cache eviction.
+- Notes when Ollama `OLLAMA_NUM_PARALLEL` is unknown at `C>1`. Renders
+  missing `context_length_max` as `unknown`.

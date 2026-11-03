@@ -111,6 +111,26 @@ def context_queueing_note(
     )
 
 
+def unknown_parallel_note(
+    cfg: BenchConfig,
+    info: BackendInfo,
+    *,
+    suite: str,
+    concurrency: int,
+) -> str | None:
+    """Ollama may serialize when OLLAMA_NUM_PARALLEL is not visible."""
+
+    if cfg.backend.type != "ollama" or concurrency <= 1:
+        return None
+    _n_ctx, slots, _source = server_n_ctx(info, cfg)
+    if slots is not None and slots > 0:
+        return None
+    return (
+        f"{suite} [ollama]: OLLAMA_NUM_PARALLEL is unknown; concurrent requests "
+        "may serialize (TTFT can scale with concurrency)"
+    )
+
+
 def skipped_summary(suite: str, concurrency: int, message: str) -> SuiteSummary:
     return SuiteSummary(
         name=suite,

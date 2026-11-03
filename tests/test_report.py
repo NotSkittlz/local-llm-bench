@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 
 from llmbench.config import BackendConfig, BenchConfig, MemoryConfig, QualityConfig
-from llmbench.report import render_html, render_markdown
+from llmbench.report import _context_label, render_html, render_markdown
 from llmbench.runner import run_benchmark
-from llmbench.schema import SamplingParams
+from llmbench.schema import ModelInfo, SamplingParams
 
 
 @pytest.mark.asyncio
@@ -117,3 +117,20 @@ async def test_concurrency_chart_has_one_series_per_suite() -> None:
     assert "per suite" in html
     assert ">short_chat</text>" in html
     assert ">code</text>" in html
+
+
+def test_context_length_max_none_renders_unknown() -> None:
+    label = _context_label(ModelInfo(name="m", context_length=8192, context_length_source="server"))
+    assert "8192" in label
+    assert "model max unknown" in label
+    assert "None" not in label
+    known = _context_label(
+        ModelInfo(
+            name="m",
+            context_length=32768,
+            context_length_max=262144,
+            context_length_source="ollama_ps",
+        )
+    )
+    assert "model max 262144" in known
+    assert "unknown" not in known

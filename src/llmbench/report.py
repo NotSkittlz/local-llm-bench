@@ -548,9 +548,8 @@ def _context_label(model: object) -> str:
             "server": f"{value} (server)",
         }
         bits.append(labels.get(source, str(value) if source is None else f"{value} ({source})"))
-    if maximum is not None:
-        bits.append(f"model max {maximum}")
-    return "; ".join(bits) if bits else "—"
+    bits.append(f"model max {maximum if maximum is not None else 'unknown'}")
+    return "; ".join(bits)
 
 
 def _fmt_overhead(ms: float) -> str:
